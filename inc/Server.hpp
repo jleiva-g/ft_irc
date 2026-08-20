@@ -22,6 +22,8 @@ class	Server {
 		map<string, Client*>	clients;
 		map<string, Channel*>	channels;
 
+		void			startMainLoop();
+
 	public:
 		Server(int port, const string& password);
 		void			start();

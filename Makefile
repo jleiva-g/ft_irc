@@ -1,11 +1,11 @@
 NAME		=	ircserv
 
-H_FILES		=	Server.hpp Client.hpp Channel.hpp Command.hpp Utils.hpp
+H_FILES		=	Server.hpp Client.hpp Channel.hpp Command.hpp Utils.hpp Exceptions.hpp
 H_DIR		=	inc
 HEADERS		=	$(addprefix $(H_DIR)/, $(H_FILES))
 
 SRC_FILES	=	main.cpp \
-				Server.cpp Client.cpp Channel.cpp Command.cpp Utils.cpp
+				Server.cpp Client.cpp Channel.cpp Command.cpp Utils.cpp Exceptions.cpp
 SRC_DIR		=	src
 SRC			=	$(addprefix $(SRC_DIR)/, $(SRC_FILES))
 

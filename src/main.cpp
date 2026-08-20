@@ -1,9 +1,27 @@
 #include "Server.hpp"
 #include "Utils.hpp"
+#include <cstdlib>
+#include <cerrno>
+#include <iostream>
+#include <stdexcept>
 
-int	main(int ac, char **av) {
-	(void) ac;
-	(void) av;
-	cout << "Holi" << endl;
-	return 0;
+using std::cerr;
+using std::endl;
+
+int	main(int ac, char* av[]) {
+	if (ac != 3)
+		return 1;
+	
+	char* end;
+	long port = std::strtol(av[1], &end, 10);
+	if (av[1] == end || *end != 0 || errno == ERANGE || port > 65535 || port < 0)
+		return 1;
+	Server server(port, av[2]);
+	try {
+		server.start();
+		while (true) {
+			
+		}
+	}
+	catch (std::exception &e) { cerr << e.what() << endl; }
 }

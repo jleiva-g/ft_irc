@@ -9,7 +9,7 @@ SRC_FILES	=	main.cpp \
 SRC_DIR		=	src
 SRC			=	$(addprefix $(SRC_DIR)/, $(SRC_FILES))
 
-OBJ_DIR		=	$(SRC_DIR)/obj
+OBJ_DIR		=	obj
 OBJ			=	$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC))
 
 CC			=	c++

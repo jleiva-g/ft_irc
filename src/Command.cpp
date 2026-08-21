@@ -46,3 +46,24 @@ const string&	Command::getName() const {
 const vector<string>&	Command::getArgs() const {
 	return _args;
 }
+
+void	Command::handleCommand(Client& client) {
+	if (_name == "PASS")
+		handlePass(client);
+	else if (_name == "NICK")
+		handleNick(client);
+	else if (_name == "USER")
+		handleUser(client);
+	else if (_name == "JOIN")
+		handleJoin(client);
+	else if (_name == "PRIVMSG")
+		handlePrivmsg(client);
+	else if (_name == "KICK")
+		handleKick(client);
+	else if (_name == "INVITE")
+		handleInvite(client);
+	else if (_name == "TOPIC")
+		handleTopic(client);
+	else if (_name == "MODE")
+		handleMode(client);
+}

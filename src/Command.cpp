@@ -81,3 +81,15 @@ void	Command::handlePass(Client& client, Server& server) {
 	}
 	client.setPassAccepted(true);
 }
+
+void	Command::handleNick(Client& client, Server& server) {
+	if (_args.size() != 1 || _args[0].empty()) {
+		// 431 ERR_NONICKNAMEGIVEN
+		return;
+	}
+	if (server.isNicknameTaken(_args[0])) {
+		// 433 ERR_NICKNAMEINUSE
+		return;
+	}
+	client.setNickname(_args[0]);
+}

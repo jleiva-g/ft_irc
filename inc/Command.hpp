@@ -20,7 +20,7 @@ class	Command {
 		void	handleCommand(Client& client, Server& server);
 		void	handlePass(Client& client, Server& server);
 		void	handleNick(Client& client, Server& server);
-		void	handleUser(Client& client, Server& server);
+		void	handleUser(Client& client);
 		void	handleJoin(Client& client, Server& server);
 		void	handlePrivmsg(Client& client, Server& server);
 		void	handleKick(Client& client, Server& server);

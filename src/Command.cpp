@@ -55,7 +55,7 @@ void	Command::handleCommand(Client& client, Server& server) {
 	else if (_name == "NICK")
 		handleNick(client, server);
 	else if (_name == "USER")
-		handleUser(client, server);
+		handleUser(client);
 	else if (_name == "JOIN")
 		handleJoin(client, server);
 	else if (_name == "PRIVMSG")
@@ -80,6 +80,7 @@ void	Command::handlePass(Client& client, Server& server) {
 		return;
 	}
 	client.setPassAccepted(true);
+	// tryRegister()
 }
 
 void	Command::handleNick(Client& client, Server& server) {
@@ -92,4 +93,18 @@ void	Command::handleNick(Client& client, Server& server) {
 		return;
 	}
 	client.setNickname(_args[0]);
+	// tryRegister()
+}
+
+void	Command::handleUser(Client & client) {
+	if (_args.size() != 4) {
+		// 461 ERR_NEEDMOREPARAMS
+		return;
+	}
+	if (client.isRegistered()) {
+		// ERR_ALREADYREGISTRED
+		return;
+	}
+	client.setUsername(_args[0]);
+	// tryRegister()
 }

@@ -6,6 +6,7 @@
 using std::string;
 using std::vector;
 
+class	Server;
 class	Client;
 
 class	Command {
@@ -16,14 +17,14 @@ class	Command {
 		Command(const string& raw);
 		const string&			getName() const;
 		const vector<string>&	getArgs() const;
-		void	handleCommand(Client& client);
-		void	handlePass(Client& client);
-		void	handleNick(Client& client);
-		void	handleUser(Client& client);
-		void	handleJoin(Client& client);
-		void	handlePrivmsg(Client& client);
-		void	handleKick(Client& client);
-		void	handleInvite(Client& client);
-		void	handleTopic(Client& client);
-		void	handleMode(Client& client);
+		void	handleCommand(Client& client, Server& server);
+		void	handlePass(Client& client, Server& server);
+		void	handleNick(Client& client, Server& server);
+		void	handleUser(Client& client, Server& server);
+		void	handleJoin(Client& client, Server& server);
+		void	handlePrivmsg(Client& client, Server& server);
+		void	handleKick(Client& client, Server& server);
+		void	handleInvite(Client& client, Server& server);
+		void	handleTopic(Client& client, Server& server);
+		void	handleMode(Client& client, Server& server);
 };

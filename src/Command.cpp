@@ -1,4 +1,6 @@
 #include "Command.hpp"
+#include "Server.hpp"
+#include "Client.hpp"
 
 Command::Command(const string& raw) {
 	string	line = raw;
@@ -47,23 +49,35 @@ const vector<string>&	Command::getArgs() const {
 	return _args;
 }
 
-void	Command::handleCommand(Client& client) {
+void	Command::handleCommand(Client& client, Server& server) {
 	if (_name == "PASS")
-		handlePass(client);
+		handlePass(client, server);
 	else if (_name == "NICK")
-		handleNick(client);
+		handleNick(client, server);
 	else if (_name == "USER")
-		handleUser(client);
+		handleUser(client, server);
 	else if (_name == "JOIN")
-		handleJoin(client);
+		handleJoin(client, server);
 	else if (_name == "PRIVMSG")
-		handlePrivmsg(client);
+		handlePrivmsg(client, server);
 	else if (_name == "KICK")
-		handleKick(client);
+		handleKick(client, server);
 	else if (_name == "INVITE")
-		handleInvite(client);
+		handleInvite(client, server);
 	else if (_name == "TOPIC")
-		handleTopic(client);
+		handleTopic(client, server);
 	else if (_name == "MODE")
-		handleMode(client);
+		handleMode(client, server);
+}
+
+void	Command::handlePass(Client& client, Server& server) {
+	if (_args.size() != 1) {
+		// 461 ERR_NEEDMOREPARAMS
+		return;
+	}
+	if (_args[0] != server.getPassword()) {
+		// 464 ERR_PASSWDMISMATCH
+		return;
+	}
+	client.setPassAccepted(true);
 }

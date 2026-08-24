@@ -68,6 +68,18 @@ void	Command::handleCommand(Client& client, Server& server) {
 		handleTopic(client, server);
 	else if (_name == "MODE")
 		handleMode(client, server);
+	// else
+		// 421 ERR_UNKNOWNCOMMAND
+}
+
+void	tryRegister(Client& client) {
+	if (client.isPassAccepted()
+		&& !client.getNickname().empty()
+		&& !client.getUsername().empty()
+		&& !client.isRegistered()) {
+		client.setRegistered(true);
+		// 001 RPL_WELCOME
+	}
 }
 
 void	Command::handlePass(Client& client, Server& server) {
@@ -80,7 +92,7 @@ void	Command::handlePass(Client& client, Server& server) {
 		return;
 	}
 	client.setPassAccepted(true);
-	// tryRegister()
+	tryRegister(client);
 }
 
 void	Command::handleNick(Client& client, Server& server) {
@@ -88,12 +100,16 @@ void	Command::handleNick(Client& client, Server& server) {
 		// 431 ERR_NONICKNAMEGIVEN
 		return;
 	}
+	if (server.isValidNickname(_args[0])) {
+		// 432 ERR_ERRONEUSNICKNAME
+		return;
+	}
 	if (server.isNicknameTaken(_args[0])) {
 		// 433 ERR_NICKNAMEINUSE
 		return;
 	}
 	client.setNickname(_args[0]);
-	// tryRegister()
+	tryRegister(client);
 }
 
 void	Command::handleUser(Client & client) {
@@ -102,9 +118,9 @@ void	Command::handleUser(Client & client) {
 		return;
 	}
 	if (client.isRegistered()) {
-		// ERR_ALREADYREGISTRED
+		// 462 ERR_ALREADYREGISTRED
 		return;
 	}
 	client.setUsername(_args[0]);
-	// tryRegister()
+	tryRegister(client);
 }

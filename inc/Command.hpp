@@ -9,6 +9,17 @@ using std::vector;
 class	Server;
 class	Client;
 
+enum	Numeric {
+	RPL_WELCOME = 001,
+	ERR_UNKNOWNCOMMAND = 421,
+	ERR_NONICKNAMEGIVEN = 431,
+	ERR_ERRONEUSNICKNAME = 432,
+	ERR_NICKNAMEINUSE = 433,
+	ERR_NEEDMOREPARAMS = 461,
+	ERR_ALREADYREGISTERED = 462,
+	ERR_PASSWDMISMATCH = 464
+};
+
 class	Command {
 	private:
 		string			_name;

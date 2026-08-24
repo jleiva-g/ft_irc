@@ -2,6 +2,11 @@
 #include "Server.hpp"
 #include "Client.hpp"
 
+#include <sstream>
+
+using std::stringstream;
+using std::getline;
+
 Command::Command(const string& raw) {
 	string	line = raw;
 	while (!line.empty()
@@ -112,7 +117,7 @@ void	Command::handleNick(Client& client, Server& server) {
 	tryRegister(client);
 }
 
-void	Command::handleUser(Client & client) {
+void	Command::handleUser(Client& client) {
 	if (_args.size() != 4) {
 		// 461 ERR_NEEDMOREPARAMS
 		return;
@@ -123,4 +128,31 @@ void	Command::handleUser(Client & client) {
 	}
 	client.setUsername(_args[0]);
 	tryRegister(client);
+}
+
+void	Command::handleJoin(Client& client, Server& server) {
+	if (!client.isRegistered()) {
+		// 451 ERR_NOTREGISTERED
+		return;
+	}
+	if (_args.size() < 1) {
+		// 461 ERR_NEEDMOREPARAMS
+		return;
+	}
+
+	stringstream	channels(_args[0]);
+	stringstream	keys;
+	string			name;
+	string			key;
+	if (_args.size() > 1)
+		keys.str(_args[1]);
+
+	while (getline(channels, name, ',')) {
+		key.clear();
+		if (_args.size() > 1)
+			getline(keys, key, ',');
+		if (name.empty())
+			continue;
+		// join channel
+	}
 }

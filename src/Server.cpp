@@ -60,21 +60,12 @@ void Server::proccessPollfd(int i) {
 	if (socket.revents & POLLOUT)
 		proccessOut(socket);
 	// Reserved for closing the connection and removing the associated client.
-	if (socket.revents & POLLHUP) {
-
-	}
-	// Reserved for handling the descriptor error and removing the associated client.
-	if (socket.revents & POLLERR) {
-
-	}
-	// Reserved for handling a closed or invalid file descriptor.
-	if (socket.revents & POLLNVAL) {
-
-	}
+	if (socket.revents & POLLHUP || socket.revents & POLLERR || socket.revents & POLLNVAL)
+		removeClient(fd);
 	// Reserved for handling urgent data reported by the socket.
-	if (socket.revents & POLLPRI) {
+	/*if (socket.revents & POLLPRI) {
 
-	}
+	}*/
 }
 
 /**
@@ -106,6 +97,7 @@ void Server::proccessIn(int fd) {
 		queueMessage(newUserfd, connectionAcceptMsg);
 
 		pollFds.push_back(newUserfd);
+		std::cout << "Accepted new client on fd " << acceptRes << std::endl;
 	}
 	else {
 		Client* client = clients[fd];
@@ -114,6 +106,10 @@ void Server::proccessIn(int fd) {
 		ssize_t bytes = recv(fd, buff, sizeof(buff), 0);
 		string response(buff, bytes);
 		client->appendRecvData(response);
+
+		while(client->getOneCommandFromBuffer(response)) {
+			std::cout << "Received command from client on fd " << fd << ": " << response << std::endl;
+		}
 	}
 }
 
@@ -136,26 +132,29 @@ void Server::proccessOut(pollfd& poll) {
 	// Stop requesting writable events until more data is queued.
 	if (client->getOutputBuffer().empty())
 		poll.events &= ~POLLOUT;
+	
+	if (sent > 0)
+		std::cout << "Sent " << sent << " bytes to client on fd " << poll.fd << std::endl;
+	else
+		std::cout << "Failed to send data to client on fd " << poll.fd << std::endl;
 }
 
-/**
- * @brief Splits a raw command line into tokens.
- * @details Separates the input on whitespace so that the resulting tokens can
- *  be used to process the command and its arguments.
- *
- * @param[in] cmdLine Raw command line.
- */
-vector<string> Server::proccessCommand(const string& cmdLine) {
-	vector<string> res;
-	// Stringstream naturally collapses consecutive whitespace separators.
-	stringstream ss(cmdLine);
-	string token;
+void Server::removeClient(int fd) {
+	client_iterator it = clients.find(fd);
+	if (it != clients.end()) {
+		delete it->second;
+		clients.erase(fd);
+	}
 
-	while (ss >> token)
-		res.push_back(token);
+	for (size_t i = 0; i < pollFds.size(); i++) {
+		if (pollFds[i].fd == fd) {
+			pollFds.erase(pollFds.begin() + i);
+			break;
+		}
+	}
 
-	return res;
-}
+	close(fd);
+} 
 
 /**
  * @brief Queues a message for a client.
@@ -169,7 +168,7 @@ vector<string> Server::proccessCommand(const string& cmdLine) {
  */
 void Server::queueMessage(pollfd& poll, const string& msg) {
 	clients[poll.fd]->queueOneCommandToBuffer(msg);
-	poll.events &= POLLOUT;
+	poll.events |= POLLOUT;
 }
 
 /**

@@ -47,7 +47,7 @@ class	Server {
 		void			proccessPollfd(int i);
 		void			proccessIn(int fd);
 		void			proccessOut(pollfd& poll);
-		vector<string>	proccessCommand(const string& cmdLine);
+		void			removeClient(int fd);
 		void			queueMessage(pollfd& poll, const string& msg);
 
 	public:

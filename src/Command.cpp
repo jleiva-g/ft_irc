@@ -167,6 +167,48 @@ static void	handlePrivmsg(Client& client, const Server& server, const vector<str
 	}
 }
 
+static void	handleKick(Client& client, Server& server, const vector<string>& args) {
+	if (!client.isRegistered()) {
+		// 451 ERR_NOTREGISTERED
+		return;
+	}
+	if (args.size() < 2) {
+		// 461 ERR_NEEDMOREPARAMS
+		return;
+	}
+	if (!server.channelExists(args[0])) {
+		// 403 ERR_NOSUCHCHANNEL
+		return;
+	}
+	if (!server.isClientInChannel(client, args[0])) {
+		// 442 ERR_NOTONCHANNEL
+		return;
+	}
+	if (!server.isChannelOp(client, args[0])) {
+		// 482 ERR_CHANOPRIVSNEEDED
+		return;
+	}
+
+	stringstream	users(args[1]);
+	string			nickname;
+	string			comment;
+	if (args.size() >= 3)
+		comment = args[2];
+	while (getline(users, nickname, ',')) {
+		if (nickname.empty())
+			continue;
+		if (!server.clientExists(nickname)) {
+			// 401 ERR_NOSUCHNICK
+			continue;
+		}
+		if (!server.isClientInChannel(nickname, args[0])) {
+			// 441 ERR_USERNOTINCHANNEL
+			continue;
+		}
+		// server.kickClient(client, nickname, args[0], comment);
+	}
+}
+
 void	Command::handleCommand(Client& client, Server& server, const string& raw) {
 	string			name;
 	vector<string>	args;

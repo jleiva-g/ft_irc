@@ -6,17 +6,19 @@ using std::string;
 
 class	Client {
 	private:
-		int		_fd;
-		string	_nickname;
-		string	_username;
-		bool	_passAccepted;
-		bool	_registered;
-		string	_recvBuffer;
-		string	_sendBuffer;
+		string	nickname;
+		string	username;
+		bool	passAccepted;
+		bool	registered;
+		string	recvBuffer;
+		string	sendBuffer;
+
 	public:
-		Client(int fd);
-		int		getFd() const;
-		string	getNickname() const;
-		string	getUsername() const;
+		Client();
+		string&	getNickname() const;
+		string&	getUsername() const;
+		string&	getOutputBuffer();
 		void	appendRecvData(const string& data);
+		bool	getOneCommandFromBuffer(string& comm);
+		void	queueOneCommandToBuffer(const string& comm);
 };

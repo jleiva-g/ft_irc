@@ -1,5 +1,14 @@
 #pragma once
 
+/**
+ * @file Server.hpp
+ * @brief Declaration of the IRC server class.
+ * @date 2026-07-19
+ * @author jleiva-g
+ * @author emilgar
+ * @author acesteve
+ */
+
 #include <string>
 #include <poll.h>
 #include <vector>
@@ -13,29 +22,43 @@ class	Client;
 class	Channel;
 class	Command;
 
+/**
+ * @class Server
+ * @brief Manages the IRC server and its client connections.
+ *
+ * @details Owns the listening socket, tracks connected clients and channels,
+ *  and dispatches network events and client commands.
+ */
 class	Server {
 	private:
-		int						socketFd;
-		int						port;
-		string					password;
-		vector<pollfd>			pollFds;
-		map<string, Client*>	clients;
-		map<string, Channel*>	channels;
+		typedef map<int, Client*>::const_iterator		client_iterator;	///< Iterator for traversing the client map.
+		typedef map<string, Channel*>::const_iterator	channel_iterator;	///< Iterator for traversing the channel map.
 
-		void			startMainLoop();
+		static const string		connectionAcceptMsg;	///< Welcome message queued for a newly accepted client.
+
+		int						socketFd;				///< Listening socket file descriptor.
+		int						port;					///< Port on which the server listens for connections.
+		string					password;				///< Password required by the server.
+		vector<pollfd>			pollFds;				///< File descriptors monitored with `poll()`.
+		map<int, Client*>		clients;				///< Connected clients keyed by file descriptor.
+		map<string, Channel*>	channels;				///< Existing channels keyed by name.
+
+		void			mainLoop();
+		void			proccessPollfd(int i);
+		void			proccessIn(int fd);
+		void			proccessOut(pollfd& poll);
+		vector<string>	proccessCommand(const string& cmdLine);
+		void			queueMessage(pollfd& poll, const string& msg);
 
 	public:
 		Server(int port, const string& password);
+		~Server();
 		void			start();
 		void			acceptClient();
-		void			handleClient(int fd);
-		void			removeClient(int fd);
-		void			sendToClient(int fd, const string& msg);
 		Client*			findClientByNickname(const string& nickname);
 		Channel*		findChannel(const string& name);
 		void			broadcastToChannel(const Channel& channel, int senderFd, const string& msg);
 		bool			isRegistered(const Client& client) const;
-		vector<string>	extractCommands(Client& client);
 		bool			isChannelName(const string& name) const;
 		bool			isValidNickname(const string& nickname) const;
 };

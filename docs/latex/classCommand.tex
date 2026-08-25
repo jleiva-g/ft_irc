@@ -1,0 +1,150 @@
+\hypertarget{classCommand}{}\doxysection{Command Class Reference}
+\label{classCommand}\index{Command@{Command}}
+
+
+{\ttfamily \#include $<$Command.\+hpp$>$}
+
+
+
+Collaboration diagram for Command\+:
+% FIG 0
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{classCommand_a3c4e60f70c988116762c7e471e960598}{Command}} (const string \&raw)
+\item 
+const string \& \mbox{\hyperlink{classCommand_a69f57933c9e1997d0d8dd305fa5e651e}{get\+Name}} () const
+\item 
+const vector$<$ string $>$ \& \mbox{\hyperlink{classCommand_af492437532bc3cb6128361675d603b26}{get\+Args}} () const
+\item 
+void \mbox{\hyperlink{classCommand_aa054d8bfcff0fa19840204c35cfebde8}{handle\+Command}} (\mbox{\hyperlink{classClient}{Client}} \&client, const \mbox{\hyperlink{classCommand}{Command}} \&cmd)
+\item 
+void \mbox{\hyperlink{classCommand_afc555409d3ef8a446bd42d75daebfbcd}{handle\+Pass}} (\mbox{\hyperlink{classClient}{Client}} \&client, const \mbox{\hyperlink{classCommand}{Command}} \&cmd)
+\item 
+void \mbox{\hyperlink{classCommand_a87fd0a01a76ebca407096cdbdbb30147}{handle\+Nick}} (\mbox{\hyperlink{classClient}{Client}} \&client, const \mbox{\hyperlink{classCommand}{Command}} \&cmd)
+\item 
+void \mbox{\hyperlink{classCommand_a916434451d49d2f5a697346841adeb0f}{handle\+User}} (\mbox{\hyperlink{classClient}{Client}} \&client, const \mbox{\hyperlink{classCommand}{Command}} \&cmd)
+\item 
+void \mbox{\hyperlink{classCommand_aab6d29bff8e6083aff57a22023251c3c}{handle\+Join}} (\mbox{\hyperlink{classClient}{Client}} \&client, const \mbox{\hyperlink{classCommand}{Command}} \&cmd)
+\item 
+void \mbox{\hyperlink{classCommand_aa9813098922b8c1ecbdf8d853de6539b}{handle\+Privmsg}} (\mbox{\hyperlink{classClient}{Client}} \&client, const \mbox{\hyperlink{classCommand}{Command}} \&cmd)
+\item 
+void \mbox{\hyperlink{classCommand_a010837d09e663d13a8ae2e140c1bc623}{handle\+Kick}} (\mbox{\hyperlink{classClient}{Client}} \&client, const \mbox{\hyperlink{classCommand}{Command}} \&cmd)
+\item 
+void \mbox{\hyperlink{classCommand_a06290f817dbaf0c64e72e33e6b6d59a1}{handle\+Invite}} (\mbox{\hyperlink{classClient}{Client}} \&client, const \mbox{\hyperlink{classCommand}{Command}} \&cmd)
+\item 
+void \mbox{\hyperlink{classCommand_ad7d2e9946a440bd9228a01b8dcf2f882}{handle\+Topic}} (\mbox{\hyperlink{classClient}{Client}} \&client, const \mbox{\hyperlink{classCommand}{Command}} \&cmd)
+\item 
+void \mbox{\hyperlink{classCommand_a57de34186d2e5e57d2c012688a7391b2}{handle\+Mode}} (\mbox{\hyperlink{classClient}{Client}} \&client, const \mbox{\hyperlink{classCommand}{Command}} \&cmd)
+\end{DoxyCompactItemize}
+\doxysubsection*{Private Attributes}
+\begin{DoxyCompactItemize}
+\item 
+string \mbox{\hyperlink{classCommand_a837f19c724c38898dcf1bdc894ac3f02}{\+\_\+name}}
+\item 
+vector$<$ string $>$ \mbox{\hyperlink{classCommand_ab311732006af64f602e674e0779e583b}{\+\_\+args}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{classCommand_a3c4e60f70c988116762c7e471e960598}\label{classCommand_a3c4e60f70c988116762c7e471e960598}} 
+\index{Command@{Command}!Command@{Command}}
+\index{Command@{Command}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{Command()}{Command()}}
+{\footnotesize\ttfamily Command\+::\+Command (\begin{DoxyParamCaption}\item[{const string \&}]{raw }\end{DoxyParamCaption})}
+
+
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{classCommand_af492437532bc3cb6128361675d603b26}\label{classCommand_af492437532bc3cb6128361675d603b26}} 
+\index{Command@{Command}!getArgs@{getArgs}}
+\index{getArgs@{getArgs}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{getArgs()}{getArgs()}}
+{\footnotesize\ttfamily const vector$<$string$>$\& Command\+::get\+Args (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption}) const}
+
+\mbox{\Hypertarget{classCommand_a69f57933c9e1997d0d8dd305fa5e651e}\label{classCommand_a69f57933c9e1997d0d8dd305fa5e651e}} 
+\index{Command@{Command}!getName@{getName}}
+\index{getName@{getName}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{getName()}{getName()}}
+{\footnotesize\ttfamily const string\& Command\+::get\+Name (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption}) const}
+
+\mbox{\Hypertarget{classCommand_aa054d8bfcff0fa19840204c35cfebde8}\label{classCommand_aa054d8bfcff0fa19840204c35cfebde8}} 
+\index{Command@{Command}!handleCommand@{handleCommand}}
+\index{handleCommand@{handleCommand}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{handleCommand()}{handleCommand()}}
+{\footnotesize\ttfamily void Command\+::handle\+Command (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classClient}{Client}} \&}]{client,  }\item[{const \mbox{\hyperlink{classCommand}{Command}} \&}]{cmd }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{classCommand_a06290f817dbaf0c64e72e33e6b6d59a1}\label{classCommand_a06290f817dbaf0c64e72e33e6b6d59a1}} 
+\index{Command@{Command}!handleInvite@{handleInvite}}
+\index{handleInvite@{handleInvite}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{handleInvite()}{handleInvite()}}
+{\footnotesize\ttfamily void Command\+::handle\+Invite (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classClient}{Client}} \&}]{client,  }\item[{const \mbox{\hyperlink{classCommand}{Command}} \&}]{cmd }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{classCommand_aab6d29bff8e6083aff57a22023251c3c}\label{classCommand_aab6d29bff8e6083aff57a22023251c3c}} 
+\index{Command@{Command}!handleJoin@{handleJoin}}
+\index{handleJoin@{handleJoin}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{handleJoin()}{handleJoin()}}
+{\footnotesize\ttfamily void Command\+::handle\+Join (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classClient}{Client}} \&}]{client,  }\item[{const \mbox{\hyperlink{classCommand}{Command}} \&}]{cmd }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{classCommand_a010837d09e663d13a8ae2e140c1bc623}\label{classCommand_a010837d09e663d13a8ae2e140c1bc623}} 
+\index{Command@{Command}!handleKick@{handleKick}}
+\index{handleKick@{handleKick}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{handleKick()}{handleKick()}}
+{\footnotesize\ttfamily void Command\+::handle\+Kick (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classClient}{Client}} \&}]{client,  }\item[{const \mbox{\hyperlink{classCommand}{Command}} \&}]{cmd }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{classCommand_a57de34186d2e5e57d2c012688a7391b2}\label{classCommand_a57de34186d2e5e57d2c012688a7391b2}} 
+\index{Command@{Command}!handleMode@{handleMode}}
+\index{handleMode@{handleMode}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{handleMode()}{handleMode()}}
+{\footnotesize\ttfamily void Command\+::handle\+Mode (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classClient}{Client}} \&}]{client,  }\item[{const \mbox{\hyperlink{classCommand}{Command}} \&}]{cmd }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{classCommand_a87fd0a01a76ebca407096cdbdbb30147}\label{classCommand_a87fd0a01a76ebca407096cdbdbb30147}} 
+\index{Command@{Command}!handleNick@{handleNick}}
+\index{handleNick@{handleNick}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{handleNick()}{handleNick()}}
+{\footnotesize\ttfamily void Command\+::handle\+Nick (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classClient}{Client}} \&}]{client,  }\item[{const \mbox{\hyperlink{classCommand}{Command}} \&}]{cmd }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{classCommand_afc555409d3ef8a446bd42d75daebfbcd}\label{classCommand_afc555409d3ef8a446bd42d75daebfbcd}} 
+\index{Command@{Command}!handlePass@{handlePass}}
+\index{handlePass@{handlePass}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{handlePass()}{handlePass()}}
+{\footnotesize\ttfamily void Command\+::handle\+Pass (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classClient}{Client}} \&}]{client,  }\item[{const \mbox{\hyperlink{classCommand}{Command}} \&}]{cmd }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{classCommand_aa9813098922b8c1ecbdf8d853de6539b}\label{classCommand_aa9813098922b8c1ecbdf8d853de6539b}} 
+\index{Command@{Command}!handlePrivmsg@{handlePrivmsg}}
+\index{handlePrivmsg@{handlePrivmsg}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{handlePrivmsg()}{handlePrivmsg()}}
+{\footnotesize\ttfamily void Command\+::handle\+Privmsg (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classClient}{Client}} \&}]{client,  }\item[{const \mbox{\hyperlink{classCommand}{Command}} \&}]{cmd }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{classCommand_ad7d2e9946a440bd9228a01b8dcf2f882}\label{classCommand_ad7d2e9946a440bd9228a01b8dcf2f882}} 
+\index{Command@{Command}!handleTopic@{handleTopic}}
+\index{handleTopic@{handleTopic}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{handleTopic()}{handleTopic()}}
+{\footnotesize\ttfamily void Command\+::handle\+Topic (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classClient}{Client}} \&}]{client,  }\item[{const \mbox{\hyperlink{classCommand}{Command}} \&}]{cmd }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{classCommand_a916434451d49d2f5a697346841adeb0f}\label{classCommand_a916434451d49d2f5a697346841adeb0f}} 
+\index{Command@{Command}!handleUser@{handleUser}}
+\index{handleUser@{handleUser}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{handleUser()}{handleUser()}}
+{\footnotesize\ttfamily void Command\+::handle\+User (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classClient}{Client}} \&}]{client,  }\item[{const \mbox{\hyperlink{classCommand}{Command}} \&}]{cmd }\end{DoxyParamCaption})}
+
+
+
+\doxysubsection{Member Data Documentation}
+\mbox{\Hypertarget{classCommand_ab311732006af64f602e674e0779e583b}\label{classCommand_ab311732006af64f602e674e0779e583b}} 
+\index{Command@{Command}!\_args@{\_args}}
+\index{\_args@{\_args}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{\_args}{\_args}}
+{\footnotesize\ttfamily vector$<$string$>$ Command\+::\+\_\+args\hspace{0.3cm}{\ttfamily [private]}}
+
+\mbox{\Hypertarget{classCommand_a837f19c724c38898dcf1bdc894ac3f02}\label{classCommand_a837f19c724c38898dcf1bdc894ac3f02}} 
+\index{Command@{Command}!\_name@{\_name}}
+\index{\_name@{\_name}!Command@{Command}}
+\doxysubsubsection{\texorpdfstring{\_name}{\_name}}
+{\footnotesize\ttfamily string Command\+::\+\_\+name\hspace{0.3cm}{\ttfamily [private]}}
+
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+inc/\mbox{\hyperlink{Command_8hpp}{Command.\+hpp}}\end{DoxyCompactItemize}

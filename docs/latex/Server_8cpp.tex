@@ -1,0 +1,38 @@
+\hypertarget{Server_8cpp}{}\doxysection{src/\+Server.cpp File Reference}
+\label{Server_8cpp}\index{src/Server.cpp@{src/Server.cpp}}
+
+
+Implements the {\ttfamily \mbox{\hyperlink{classServer}{Server}}} class for managing an IRC server.  
+
+
+{\ttfamily \#include \char`\"{}Server.\+hpp\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}Exceptions.\+hpp\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}Client.\+hpp\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}Channel.\+hpp\char`\"{}}\newline
+{\ttfamily \#include $<$sys/socket.\+h$>$}\newline
+{\ttfamily \#include $<$netinet/in.\+h$>$}\newline
+{\ttfamily \#include $<$unistd.\+h$>$}\newline
+{\ttfamily \#include $<$fcntl.\+h$>$}\newline
+{\ttfamily \#include $<$cerrno$>$}\newline
+{\ttfamily \#include $<$cstring$>$}\newline
+{\ttfamily \#include $<$sstream$>$}\newline
+{\ttfamily \#include $<$iostream$>$}\newline
+Include dependency graph for Server.\+cpp\+:
+% FIG 0
+
+
+\doxysubsection{Detailed Description}
+Implements the {\ttfamily \mbox{\hyperlink{classServer}{Server}}} class for managing an IRC server. 
+
+Implements the {\ttfamily \mbox{\hyperlink{classServer}{Server}}} class, which owns the listening socket, tracks connected clients and channels, and dispatches network events and client commands. The server uses {\ttfamily poll()} to monitor multiple sockets for incoming and outgoing data, and handles new connections, client input, and output in a non-\/blocking manner.
+
+\begin{DoxyDate}{Date}
+2026-\/07-\/19 
+\end{DoxyDate}
+\begin{DoxyAuthor}{Author}
+Jesus Leiva Guerrero 
+
+Emilio Garcia Burgos 
+
+Lilith Estévez Boeta 
+\end{DoxyAuthor}

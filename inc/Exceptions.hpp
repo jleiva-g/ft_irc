@@ -19,6 +19,18 @@
 using std::exception;
 using std::string;
 
+/**
+ * @defgroup ExceptionTypes Exception Types
+ * @brief Custom exception types for the IRC server.
+ * @details This group contains the `PersonalizedException` base class and
+ *  several derived exception types that represent specific error conditions
+ *  encountered during server operation. Each exception type carries the source
+ *  file and line number where it was thrown, allowing for detailed error
+ *  reporting and debugging.
+ * 
+ * @{
+ */
+
 void manageErrorsFromSocket(int error, const char* file, int line);
 void manageErrorsFromBind(int error, const char* file, int line);
 void manageErrorsFromListen(int error, const char* file, int line);
@@ -98,3 +110,7 @@ struct SocketNotSupportListenException : public PersonalizedException {
 	SocketNotSupportListenException(const char* file, int line);
 	const char* what() const throw();
 };
+
+/**
+ * @}
+ */

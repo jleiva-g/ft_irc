@@ -1,3 +1,18 @@
+/**
+ * @file Server.cpp
+ * @brief Implements the `Server` class for managing an IRC server.
+ * @details Implements the `Server` class, which owns the listening socket,
+ *  tracks connected clients and channels, and dispatches network events and
+ *  client commands. The server uses `poll()` to monitor multiple sockets for
+ *  incoming and outgoing data, and handles new connections, client input,
+ *  and output in a non-blocking manner.
+ * 
+ * @date 2026-07-19
+ * @author Jesus Leiva Guerrero
+ * @author Emilio Garcia Burgos
+ * @author Lilith Estévez Boeta
+ */
+
 #include "Server.hpp"
 #include "Exceptions.hpp"
 #include "Client.hpp"
@@ -15,7 +30,22 @@ using std::stringstream;
 
 const string Server::connectionAcceptMsg = ":irc.miservidor.com 001 pepito :Welcome to the Internet Relay Network pepito!usuario@host";
 
+/**
+ * @brief Constructs a `Server` instance with the specified port and password.
+ * @details Initializes the server's listening socket descriptor to -1, sets the
+ *  listening port and password, and prepares the internal data structures for
+ *  managing clients and channels.
+ * 
+ * @param[in] port Port number on which the server will listen for connections.
+ * @param[in] password Password required for clients to register with the server.
+ */
 Server::Server(int port, const string& password) : socketFd(-1), port(port), password(password) {}
+/**
+ * @brief Destroys the `Server` instance and cleans up resources.
+ * @details Closes the listening socket and deletes all `Client` and `Channel`
+ *  objects owned by the server. The destructor ensures that all dynamically
+ *  allocated resources are properly released to prevent memory leaks.
+ */
 Server::~Server() {
 	// The server owns the client and channel objects stored in these maps.
 	for (client_iterator it = clients.begin(); it != clients.end(); it++)
@@ -28,6 +58,8 @@ Server::~Server() {
  * @brief Runs the server's main event loop.
  * @details Waits for activity on the listening socket and connected clients,
  *  then dispatches the corresponding input and output handlers.
+ * 
+ * @warning This method blocks indefinitely and does not return under normal operation.
  */
 void Server::mainLoop() {
 	while (true) {

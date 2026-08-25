@@ -1,0 +1,135 @@
+\hypertarget{classClient}{}\doxysection{Client Class Reference}
+\label{classClient}\index{Client@{Client}}
+
+
+{\ttfamily \#include $<$Client.\+hpp$>$}
+
+
+
+Collaboration diagram for Client\+:
+% FIG 0
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{classClient_ae51af7aa6b8f591496a8f6a4a87a14bf}{Client}} ()
+\item 
+string \& \mbox{\hyperlink{classClient_ace7595fa77c7914daebab3017a5f4eb2}{get\+Nickname}} () const
+\item 
+string \& \mbox{\hyperlink{classClient_ad407758626c7255674903f24712cb70f}{get\+Username}} () const
+\item 
+string \& \mbox{\hyperlink{classClient_a6bee6dbb5ea0f48a6ec326a8a4edd2d7}{get\+Output\+Buffer}} ()
+\item 
+void \mbox{\hyperlink{classClient_a0c806236a614d3856ab6318b5a3c8e8e}{append\+Recv\+Data}} (const string \&data)
+\item 
+bool \mbox{\hyperlink{classClient_a0dba015ed187d46a11385b345e78b940}{get\+One\+Command\+From\+Buffer}} (string \&comm)
+\item 
+void \mbox{\hyperlink{classClient_a41b5dd1524b4fe5a897497a4533d09fb}{queue\+One\+Command\+To\+Buffer}} (const string \&comm)
+\end{DoxyCompactItemize}
+\doxysubsection*{Private Attributes}
+\begin{DoxyCompactItemize}
+\item 
+string \mbox{\hyperlink{classClient_a100590c196ee54fda82564a8642ed6d4}{nickname}}
+\item 
+string \mbox{\hyperlink{classClient_aaf4f11ae80a7e8563bbdbac87b0687e8}{username}}
+\item 
+bool \mbox{\hyperlink{classClient_a93cd1de58c2372c6dc243d1b496fa681}{pass\+Accepted}}
+\item 
+bool \mbox{\hyperlink{classClient_ab552cdc5c8c9d964efae4f98baf56ccf}{registered}}
+\item 
+string \mbox{\hyperlink{classClient_a3744c7bfb08c5fefe7aab6c21db6af9b}{recv\+Buffer}}
+\item 
+string \mbox{\hyperlink{classClient_a92b9b060524783ff9647d7140f7a3586}{send\+Buffer}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{classClient_ae51af7aa6b8f591496a8f6a4a87a14bf}\label{classClient_ae51af7aa6b8f591496a8f6a4a87a14bf}} 
+\index{Client@{Client}!Client@{Client}}
+\index{Client@{Client}!Client@{Client}}
+\doxysubsubsection{\texorpdfstring{Client()}{Client()}}
+{\footnotesize\ttfamily Client\+::\+Client (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{classClient_a0c806236a614d3856ab6318b5a3c8e8e}\label{classClient_a0c806236a614d3856ab6318b5a3c8e8e}} 
+\index{Client@{Client}!appendRecvData@{appendRecvData}}
+\index{appendRecvData@{appendRecvData}!Client@{Client}}
+\doxysubsubsection{\texorpdfstring{appendRecvData()}{appendRecvData()}}
+{\footnotesize\ttfamily void Client\+::append\+Recv\+Data (\begin{DoxyParamCaption}\item[{const string \&}]{data }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{classClient_ace7595fa77c7914daebab3017a5f4eb2}\label{classClient_ace7595fa77c7914daebab3017a5f4eb2}} 
+\index{Client@{Client}!getNickname@{getNickname}}
+\index{getNickname@{getNickname}!Client@{Client}}
+\doxysubsubsection{\texorpdfstring{getNickname()}{getNickname()}}
+{\footnotesize\ttfamily string\& Client\+::get\+Nickname (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption}) const}
+
+\mbox{\Hypertarget{classClient_a0dba015ed187d46a11385b345e78b940}\label{classClient_a0dba015ed187d46a11385b345e78b940}} 
+\index{Client@{Client}!getOneCommandFromBuffer@{getOneCommandFromBuffer}}
+\index{getOneCommandFromBuffer@{getOneCommandFromBuffer}!Client@{Client}}
+\doxysubsubsection{\texorpdfstring{getOneCommandFromBuffer()}{getOneCommandFromBuffer()}}
+{\footnotesize\ttfamily bool Client\+::get\+One\+Command\+From\+Buffer (\begin{DoxyParamCaption}\item[{string \&}]{comm }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{classClient_a6bee6dbb5ea0f48a6ec326a8a4edd2d7}\label{classClient_a6bee6dbb5ea0f48a6ec326a8a4edd2d7}} 
+\index{Client@{Client}!getOutputBuffer@{getOutputBuffer}}
+\index{getOutputBuffer@{getOutputBuffer}!Client@{Client}}
+\doxysubsubsection{\texorpdfstring{getOutputBuffer()}{getOutputBuffer()}}
+{\footnotesize\ttfamily string \& Client\+::get\+Output\+Buffer (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{classClient_ad407758626c7255674903f24712cb70f}\label{classClient_ad407758626c7255674903f24712cb70f}} 
+\index{Client@{Client}!getUsername@{getUsername}}
+\index{getUsername@{getUsername}!Client@{Client}}
+\doxysubsubsection{\texorpdfstring{getUsername()}{getUsername()}}
+{\footnotesize\ttfamily string\& Client\+::get\+Username (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption}) const}
+
+\mbox{\Hypertarget{classClient_a41b5dd1524b4fe5a897497a4533d09fb}\label{classClient_a41b5dd1524b4fe5a897497a4533d09fb}} 
+\index{Client@{Client}!queueOneCommandToBuffer@{queueOneCommandToBuffer}}
+\index{queueOneCommandToBuffer@{queueOneCommandToBuffer}!Client@{Client}}
+\doxysubsubsection{\texorpdfstring{queueOneCommandToBuffer()}{queueOneCommandToBuffer()}}
+{\footnotesize\ttfamily void Client\+::queue\+One\+Command\+To\+Buffer (\begin{DoxyParamCaption}\item[{const string \&}]{comm }\end{DoxyParamCaption})}
+
+
+
+\doxysubsection{Member Data Documentation}
+\mbox{\Hypertarget{classClient_a100590c196ee54fda82564a8642ed6d4}\label{classClient_a100590c196ee54fda82564a8642ed6d4}} 
+\index{Client@{Client}!nickname@{nickname}}
+\index{nickname@{nickname}!Client@{Client}}
+\doxysubsubsection{\texorpdfstring{nickname}{nickname}}
+{\footnotesize\ttfamily string Client\+::nickname\hspace{0.3cm}{\ttfamily [private]}}
+
+\mbox{\Hypertarget{classClient_a93cd1de58c2372c6dc243d1b496fa681}\label{classClient_a93cd1de58c2372c6dc243d1b496fa681}} 
+\index{Client@{Client}!passAccepted@{passAccepted}}
+\index{passAccepted@{passAccepted}!Client@{Client}}
+\doxysubsubsection{\texorpdfstring{passAccepted}{passAccepted}}
+{\footnotesize\ttfamily bool Client\+::pass\+Accepted\hspace{0.3cm}{\ttfamily [private]}}
+
+\mbox{\Hypertarget{classClient_a3744c7bfb08c5fefe7aab6c21db6af9b}\label{classClient_a3744c7bfb08c5fefe7aab6c21db6af9b}} 
+\index{Client@{Client}!recvBuffer@{recvBuffer}}
+\index{recvBuffer@{recvBuffer}!Client@{Client}}
+\doxysubsubsection{\texorpdfstring{recvBuffer}{recvBuffer}}
+{\footnotesize\ttfamily string Client\+::recv\+Buffer\hspace{0.3cm}{\ttfamily [private]}}
+
+\mbox{\Hypertarget{classClient_ab552cdc5c8c9d964efae4f98baf56ccf}\label{classClient_ab552cdc5c8c9d964efae4f98baf56ccf}} 
+\index{Client@{Client}!registered@{registered}}
+\index{registered@{registered}!Client@{Client}}
+\doxysubsubsection{\texorpdfstring{registered}{registered}}
+{\footnotesize\ttfamily bool Client\+::registered\hspace{0.3cm}{\ttfamily [private]}}
+
+\mbox{\Hypertarget{classClient_a92b9b060524783ff9647d7140f7a3586}\label{classClient_a92b9b060524783ff9647d7140f7a3586}} 
+\index{Client@{Client}!sendBuffer@{sendBuffer}}
+\index{sendBuffer@{sendBuffer}!Client@{Client}}
+\doxysubsubsection{\texorpdfstring{sendBuffer}{sendBuffer}}
+{\footnotesize\ttfamily string Client\+::send\+Buffer\hspace{0.3cm}{\ttfamily [private]}}
+
+\mbox{\Hypertarget{classClient_aaf4f11ae80a7e8563bbdbac87b0687e8}\label{classClient_aaf4f11ae80a7e8563bbdbac87b0687e8}} 
+\index{Client@{Client}!username@{username}}
+\index{username@{username}!Client@{Client}}
+\doxysubsubsection{\texorpdfstring{username}{username}}
+{\footnotesize\ttfamily string Client\+::username\hspace{0.3cm}{\ttfamily [private]}}
+
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+inc/\mbox{\hyperlink{Client_8hpp}{Client.\+hpp}}\item 
+src/\mbox{\hyperlink{Client_8cpp}{Client.\+cpp}}\end{DoxyCompactItemize}

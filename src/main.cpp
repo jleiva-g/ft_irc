@@ -1,3 +1,17 @@
+/**
+ * @file main.cpp
+ * @brief Entry point for the IRC server application.
+ * @details Implements the `main()` function, which parses command-line arguments,
+ *  initializes the `Server` instance, and starts the server's main event loop.
+ * 
+ * @date 2026-07-19
+ * @author Jesus Leiva Guerrero
+ * @author Emilio Garcia Burgos
+ * @author Lilith Estévez Boeta
+ */
+
+ 
+
 #include "Server.hpp"
 #include "Utils.hpp"
 #include <cstdlib>

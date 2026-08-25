@@ -156,3 +156,44 @@ void	Command::handleJoin(Client& client, Server& server) {
 		// join channel
 	}
 }
+
+void	Command::handlePrivmsg(Client& client, Server& server) {
+	if (!client.isRegistered()) {
+		// 451 ERR_NOTREGISTERED
+		return;
+	}
+	if (_args.empty() || _args[0].empty()) {
+		// 411 ERR_NORECIPIENT
+		return;
+	}
+	if (_args.size() < 2 || _args[1].empty()) {
+		// 412 ERR_NOTEXTTOSEND
+		return;
+	}
+
+	stringstream	targets(_args[0]);
+	string			target;
+	bool			hasTarget = false;
+	while (getline(targets, target, ',')) {
+		if (target.empty())
+			continue;
+		hasTarget = true;
+		if (target[0] == '#') {
+			if (!server.channelExists(target)) {
+				// 403 ERR_NOSUCHCHANNEL
+				continue;
+			}
+			// sendToChannel()
+		} else {
+			if (!server.clientExists(target)) {
+				// 401 ERR_NOSUCHNICK
+				continue;
+			}
+			// sendToClient()
+		}
+	}
+	if (!hasTarget) {
+		// 411 ERR_NORECIPIENT
+		return;
+	}
+}

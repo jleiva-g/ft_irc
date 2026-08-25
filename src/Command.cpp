@@ -209,6 +209,38 @@ static void	handleKick(Client& client, Server& server, const vector<string>& arg
 	}
 }
 
+static void	handleinvite(Client& client, Server& server, const vector<string>& args) {
+	if (!client.isRegistered()) {
+		// 451 ERR_NOTREGISTERED
+		return;
+	}
+	if (args.size() < 2) {
+		// 461 ERR_NEEDMOREPARAMS
+		return;
+	}
+	if (!server.channelExists(args[1])) {
+		// 403 ERR_NOSUCHCHANNEL
+		return;
+	}
+	if (!server.clientExists(args[0])) {
+		// 401 ERR_NOSUCHNICK
+		return;
+	}
+	if (!server.isClientInChannel(client, args[1])) {
+		// 442 ERR_NOTONCHANNEL
+		return;
+	}
+	if (!server.isChannelOp(client, args[1])) {
+		// 482 ERR_CHANOPRIVSNEEDED
+		return;
+	}
+	if (server.isClientInChannel(args[0], args[1])) {
+		// 443 ERR_USERONCHANNEL
+		return;
+	}
+	// server.inviteClient(client, args[0], args[1])
+}
+
 void	Command::handleCommand(Client& client, Server& server, const string& raw) {
 	string			name;
 	vector<string>	args;

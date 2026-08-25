@@ -28,20 +28,9 @@ enum	Numeric {
 
 class	Command {
 	private:
-		string			_name;
-		vector<string>	_args;
+		Command();
+		Command(const Command&);
+		Command& operator=(const Command&);
 	public:
-		Command(const string& raw);
-		const string&			getName() const;
-		const vector<string>&	getArgs() const;
-		void	handleCommand(Client& client, Server& server);
-		void	handlePass(Client& client, Server& server);
-		void	handleNick(Client& client, Server& server);
-		void	handleUser(Client& client);
-		void	handleJoin(Client& client, Server& server);
-		void	handlePrivmsg(Client& client, Server& server);
-		void	handleKick(Client& client, Server& server);
-		void	handleInvite(Client& client, Server& server);
-		void	handleTopic(Client& client, Server& server);
-		void	handleMode(Client& client, Server& server);
+		static void	handleCommand(Client& client, Server& server, const string& raw);
 };

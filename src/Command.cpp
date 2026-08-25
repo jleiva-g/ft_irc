@@ -7,7 +7,7 @@
 using std::stringstream;
 using std::getline;
 
-Command::Command(const string& raw) {
+static void	parseCommand(const string& raw, string& name, vector<string>& args) {
 	string	line = raw;
 	while (!line.empty()
 		&& (line[line.size() - 1] == '\n'
@@ -20,11 +20,11 @@ Command::Command(const string& raw) {
 
 	size_t	end = line.find(' ', pos);
 	if (end == string::npos) {
-		_name = line.substr(pos);
+		name = line.substr(pos);
 		return;
 	}
 
-	_name = line.substr(pos, end - pos);
+	name = line.substr(pos, end - pos);
 	pos = end;
 
 	while (pos < line.size()) {
@@ -33,51 +33,20 @@ Command::Command(const string& raw) {
 		if (pos >= line.size())
 			break;
 		if (line[pos] == ':') {
-			_args.push_back(line.substr(pos + 1));
+			args.push_back(line.substr(pos + 1));
 			break;
 		}
 		end = line.find(' ', pos);
 		if (end == string::npos) {
-			_args.push_back(line.substr(pos));
+			args.push_back(line.substr(pos));
 			break;
 		}
-		_args.push_back(line.substr(pos, end - pos));
+		args.push_back(line.substr(pos, end - pos));
 		pos = end;
 	}
 }
 
-const string&	Command::getName() const {
-	return _name;
-}
-
-const vector<string>&	Command::getArgs() const {
-	return _args;
-}
-
-void	Command::handleCommand(Client& client, Server& server) {
-	if (_name == "PASS")
-		handlePass(client, server);
-	else if (_name == "NICK")
-		handleNick(client, server);
-	else if (_name == "USER")
-		handleUser(client);
-	else if (_name == "JOIN")
-		handleJoin(client, server);
-	else if (_name == "PRIVMSG")
-		handlePrivmsg(client, server);
-	else if (_name == "KICK")
-		handleKick(client, server);
-	else if (_name == "INVITE")
-		handleInvite(client, server);
-	else if (_name == "TOPIC")
-		handleTopic(client, server);
-	else if (_name == "MODE")
-		handleMode(client, server);
-	// else
-		// 421 ERR_UNKNOWNCOMMAND
-}
-
-void	tryRegister(Client& client) {
+static void	tryRegister(Client& client) {
 	if (client.isPassAccepted()
 		&& !client.getNickname().empty()
 		&& !client.getUsername().empty()
@@ -87,12 +56,12 @@ void	tryRegister(Client& client) {
 	}
 }
 
-void	Command::handlePass(Client& client, Server& server) {
-	if (_args.size() != 1) {
+static void	handlePass(Client& client, const Server& server, const vector<string>& args) {
+	if (args.size() != 1) {
 		// 461 ERR_NEEDMOREPARAMS
 		return;
 	}
-	if (_args[0] != server.getPassword()) {
+	if (args[0] != server.getPassword()) {
 		// 464 ERR_PASSWDMISMATCH
 		return;
 	}
@@ -100,25 +69,25 @@ void	Command::handlePass(Client& client, Server& server) {
 	tryRegister(client);
 }
 
-void	Command::handleNick(Client& client, Server& server) {
-	if (_args.size() != 1 || _args[0].empty()) {
+static void	handleNick(Client& client, const Server& server, const vector<string>& args) {
+	if (args.size() != 1 || args[0].empty()) {
 		// 431 ERR_NONICKNAMEGIVEN
 		return;
 	}
-	if (server.isValidNickname(_args[0])) {
+	if (server.isValidNickname(args[0])) {
 		// 432 ERR_ERRONEUSNICKNAME
 		return;
 	}
-	if (server.isNicknameTaken(_args[0])) {
+	if (server.isNicknameTaken(args[0])) {
 		// 433 ERR_NICKNAMEINUSE
 		return;
 	}
-	client.setNickname(_args[0]);
+	client.setNickname(args[0]);
 	tryRegister(client);
 }
 
-void	Command::handleUser(Client& client) {
-	if (_args.size() != 4) {
+static void	handleUser(Client& client, const vector<string>& args) {
+	if (args.size() != 4) {
 		// 461 ERR_NEEDMOREPARAMS
 		return;
 	}
@@ -126,30 +95,30 @@ void	Command::handleUser(Client& client) {
 		// 462 ERR_ALREADYREGISTRED
 		return;
 	}
-	client.setUsername(_args[0]);
+	client.setUsername(args[0]);
 	tryRegister(client);
 }
 
-void	Command::handleJoin(Client& client, Server& server) {
+static void	handleJoin(Client& client, Server& server, const vector<string>& args) {
 	if (!client.isRegistered()) {
 		// 451 ERR_NOTREGISTERED
 		return;
 	}
-	if (_args.size() < 1) {
+	if (args.size() < 1) {
 		// 461 ERR_NEEDMOREPARAMS
 		return;
 	}
 
-	stringstream	channels(_args[0]);
+	stringstream	channels(args[0]);
 	stringstream	keys;
 	string			name;
 	string			key;
-	if (_args.size() > 1)
-		keys.str(_args[1]);
+	if (args.size() > 1)
+		keys.str(args[1]);
 
 	while (getline(channels, name, ',')) {
 		key.clear();
-		if (_args.size() > 1)
+		if (args.size() > 1)
 			getline(keys, key, ',');
 		if (name.empty())
 			continue;
@@ -157,21 +126,21 @@ void	Command::handleJoin(Client& client, Server& server) {
 	}
 }
 
-void	Command::handlePrivmsg(Client& client, Server& server) {
+static void	handlePrivmsg(Client& client, const Server& server, const vector<string>& args) {
 	if (!client.isRegistered()) {
 		// 451 ERR_NOTREGISTERED
 		return;
 	}
-	if (_args.empty() || _args[0].empty()) {
+	if (args.empty() || args[0].empty()) {
 		// 411 ERR_NORECIPIENT
 		return;
 	}
-	if (_args.size() < 2 || _args[1].empty()) {
+	if (args.size() < 2 || args[1].empty()) {
 		// 412 ERR_NOTEXTTOSEND
 		return;
 	}
 
-	stringstream	targets(_args[0]);
+	stringstream	targets(args[0]);
 	string			target;
 	bool			hasTarget = false;
 	while (getline(targets, target, ',')) {
@@ -196,4 +165,31 @@ void	Command::handlePrivmsg(Client& client, Server& server) {
 		// 411 ERR_NORECIPIENT
 		return;
 	}
+}
+
+void	Command::handleCommand(Client& client, Server& server, const string& raw) {
+	string			name;
+	vector<string>	args;
+	parseCommand(raw, name, args);
+
+	if (name == "PASS")
+		handlePass(client, server, args);
+	else if (name == "NICK")
+		handleNick(client, server, args);
+	else if (name == "USER")
+		handleUser(client, args);
+	else if (name == "JOIN")
+		handleJoin(client, server, args);
+	else if (name == "PRIVMSG")
+		handlePrivmsg(client, server, args);
+	else if (name == "KICK")
+		handleKick(client, server, args);
+	else if (name == "INVITE")
+		handleInvite(client, server, args);
+	else if (name == "TOPIC")
+		handleTopic(client, server, args);
+	else if (name == "MODE")
+		handleMode(client, server, args);
+	// else
+		// 421 ERR_UNKNOWNCOMMAND
 }

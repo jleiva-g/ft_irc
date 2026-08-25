@@ -3,10 +3,15 @@
 /**
  * @file Server.hpp
  * @brief Declaration of the IRC server class.
+ * @details Defines the `Server` class, which manages the listening socket,
+ *  connected clients, and channels. It provides methods for starting the server,
+ *  accepting new clients, processing incoming and outgoing data, and broadcasting
+ *  messages to channels.
+ * 
  * @date 2026-07-19
- * @author jleiva-g
- * @author emilgar
- * @author acesteve
+ * @author Jesus Leiva Guerrero
+ * @author Emilio Garcia Burgos
+ * @author Lilith Estévez Boeta
  */
 
 #include <string>

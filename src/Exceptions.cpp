@@ -1,4 +1,5 @@
 #include "Exceptions.hpp"
+#include <cerrno>
 #include <iostream>
 #include <sstream>
 

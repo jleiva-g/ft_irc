@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <cerrno>
+#include <cstring>
 #include <sstream>
 #include <iostream>
 
@@ -51,17 +52,33 @@ void Server::mainLoop() {
  * @param[in] i Index of the monitored file descriptor in `pollFds`.
  */
 void Server::proccessPollfd(int i) {
-	pollfd& socket = pollFds[i];
-	int fd = socket.fd;
+	if (i < 0 || static_cast<size_t>(i) >= pollFds.size())
+		return;
+
+	int fd = pollFds[i].fd;
+	short revents = pollFds[i].revents;
+
+	if (revents & (POLLHUP | POLLERR | POLLNVAL)) {
+		if (fd != socketFd)
+			removeClient(fd);
+		return;
+	}
 
 	// Readable and writable events may be reported together for the same socket.
-	if (socket.revents & POLLIN)
+	if (revents & POLLIN)
 		proccessIn(fd);
-	if (socket.revents & POLLOUT)
-		proccessOut(socket);
-	// Reserved for closing the connection and removing the associated client.
-	if (socket.revents & POLLHUP || socket.revents & POLLERR || socket.revents & POLLNVAL)
-		removeClient(fd);
+
+	if (fd != socketFd && clients.find(fd) == clients.end())
+		return;
+
+	if (revents & POLLOUT) {
+		for (size_t j = 0; j < pollFds.size(); j++) {
+			if (pollFds[j].fd == fd) {
+				proccessOut(pollFds[j]);
+				break;
+			}
+		}
+	}
 	// Reserved for handling urgent data reported by the socket.
 	/*if (socket.revents & POLLPRI) {
 
@@ -81,10 +98,19 @@ void Server::proccessIn(int fd) {
 	if (fd == socketFd) {
 		// A readable listening socket indicates that a client is waiting to connect.
 		int acceptRes = accept(socketFd, NULL, NULL);
+		if (acceptRes < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+				return;
+			std::cerr << "accept() failed: " << std::strerror(errno) << std::endl;
+			return;
+		}
 
 		// Keep client operations from blocking the server's event loop.
 		int flags = fcntl(acceptRes, F_GETFL, 0);
-		fcntl(acceptRes, F_SETFL, flags | O_NONBLOCK);
+		if (flags == -1 || fcntl(acceptRes, F_SETFL, flags | O_NONBLOCK) == -1) {
+			close(acceptRes);
+			return;
+		}
 
 		// Monitor the new client for incoming data and pending outgoing data.
 		pollfd newUserfd;
@@ -100,11 +126,25 @@ void Server::proccessIn(int fd) {
 		std::cout << "Accepted new client on fd " << acceptRes << std::endl;
 	}
 	else {
-		Client* client = clients[fd];
+		client_iterator it = clients.find(fd);
+		if (it == clients.end())
+			return;
+		Client* client = it->second;
 
 		// Append received bytes so incomplete commands can be completed later.
 		ssize_t bytes = recv(fd, buff, sizeof(buff), 0);
-		string response(buff, bytes);
+		if (bytes == 0) {
+			removeClient(fd);
+			return;
+		}
+		if (bytes < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+				return;
+			removeClient(fd);
+			return;
+		}
+
+		string response(buff, static_cast<size_t>(bytes));
 		client->appendRecvData(response);
 
 		while(client->getOneCommandFromBuffer(response)) {
@@ -122,15 +162,28 @@ void Server::proccessIn(int fd) {
  *  events are updated.
  */
 void Server::proccessOut(pollfd& poll) {
-	Client* client = clients[poll.fd];
-	// send() may transmit only part of the queued response.
-	ssize_t sent = send(poll.fd, client->getOutputBuffer().c_str(), client->getOutputBuffer().length(), 0);
+	client_iterator it = clients.find(poll.fd);
+	if (it == clients.end())
+		return;
+	Client* client = it->second;
+	string& output = client->getOutputBuffer();
+	if (output.empty()) {
+		poll.events &= ~POLLOUT;
+		return;
+	}
+
+	ssize_t sent = send(poll.fd, output.c_str(), output.length(), 0);
 
 	if (sent > 0)
-		client->getOutputBuffer().erase(0, sent);
+		output.erase(0, sent);
+	else if (sent < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR))
+		return;
+	else {
+		removeClient(poll.fd);
+		return;
+	}
 
-	// Stop requesting writable events until more data is queued.
-	if (client->getOutputBuffer().empty())
+	if (output.empty())
 		poll.events &= ~POLLOUT;
 	
 	if (sent > 0)
@@ -139,6 +192,13 @@ void Server::proccessOut(pollfd& poll) {
 		std::cout << "Failed to send data to client on fd " << poll.fd << std::endl;
 }
 
+/**
+ * @brief Removes a client from the server.
+ * @details Deletes the `Client` object, removes the client from the `clients`
+ *  map, removes the client's descriptor from `pollFds`, and closes the socket.
+ * 
+ * @param[in] fd File descriptor of the client to remove.
+ */
 void Server::removeClient(int fd) {
 	client_iterator it = clients.find(fd);
 	if (it != clients.end()) {
@@ -154,6 +214,8 @@ void Server::removeClient(int fd) {
 	}
 
 	close(fd);
+
+	std::cout << "Closed connection with client on fd " << fd << std::endl;
 } 
 
 /**
@@ -183,7 +245,7 @@ void Server::queueMessage(pollfd& poll, const string& msg) {
  * @throw UnsupportedIPProtocolException If IPv4 sockets are not supported.
  * @throw PortInUseException If the configured port is already in use.
  * @throw InvalidFileDescriptorException If a socket file descriptor is invalid.
- * @throw AlreadyLinkedFileDescriptorException If the socket is already bound.
+ * @throw AlredyLinkedFileDescriptorException If the socket is already bound.
  * @throw FileDescriptorIsNotSocketException If the file descriptor is not a socket.
  * @throw SocketNotSupportListenException If the socket does not support listening.
  */

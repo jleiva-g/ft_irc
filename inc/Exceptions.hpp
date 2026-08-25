@@ -3,6 +3,15 @@
 /**
  * @file Exceptions.hpp
  * @brief Exception types and error translators used by the IRC server.
+ * @details Defines the `PersonalizedException` base class and several derived
+ *  exception types that carry source file and line information. Also provides
+ *  functions to translate system error codes from socket, bind, and listen
+ *  operations into the corresponding exception types.
+ * 
+ * @date 2026-07-20
+ * @author Jesus Leiva Guerrero
+ * @author Emilio Garcia Burgos
+ * @author Lilith Estévez Boeta
  */
 
 #include <stdexcept>

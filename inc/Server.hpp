@@ -37,6 +37,7 @@ class	Command;
 class	Server {
 	private:
 		typedef map<int, Client*>::const_iterator		client_iterator;	///< Iterator for traversing the client map.
+		typedef map<string, Client*>::const_iterator	nickname_iterator;	///< Iterator for traversing the nickname map.
 		typedef map<string, Channel*>::const_iterator	channel_iterator;	///< Iterator for traversing the channel map.
 
 		static const string		connectionAcceptMsg;	///< Welcome message queued for a newly accepted client.
@@ -46,6 +47,7 @@ class	Server {
 		string					password;				///< Password required by the server.
 		vector<pollfd>			pollFds;				///< File descriptors monitored with `poll()`.
 		map<int, Client*>		clients;				///< Connected clients keyed by file descriptor.
+		map<string, Client*>	nicknames;				///< Registered nicknames keyed by nickname string.
 		map<string, Channel*>	channels;				///< Existing channels keyed by name.
 
 		void			mainLoop();
@@ -55,15 +57,14 @@ class	Server {
 		void			removeClient(int fd);
 		void			queueMessage(pollfd& poll, const string& msg);
 
+		pollfd&			findPollfd(int fd);
 	public:
 		Server(int port, const string& password);
 		~Server();
-		void			start();
-		void			acceptClient();
-		Client*			findClientByNickname(const string& nickname);
-		Channel*		findChannel(const string& name);
-		void			broadcastToChannel(const Channel& channel, int senderFd, const string& msg);
-		bool			isRegistered(const Client& client) const;
-		bool			isChannelName(const string& name) const;
-		bool			isValidNickname(const string& nickname) const;
+
+		void	start();
+		void	changeNickname(const string& nickname, Client* client);
+		void	sendReplyToClient(const string& nickname, int code, const string& msg);
+		void	sendMessageToClient(const string& sender, const string& recipient, const string& msg);
+		void	sendMessageToChannel(const string& sender, const string& channelName, const string& msg);
 };

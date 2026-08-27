@@ -28,7 +28,7 @@
 
 using std::stringstream;
 
-const string Server::connectionAcceptMsg = ":irc.miservidor.com 001 pepito :Welcome to the Internet Relay Network pepito!usuario@host";
+const string Server::connectionAcceptMsg = ":Welcome to the Internet Relay Network pepito!usuario@host";
 
 /**
  * @brief Constructs a `Server` instance with the specified port and password.
@@ -104,12 +104,7 @@ void Server::proccessPollfd(int i) {
 		return;
 
 	if (revents & POLLOUT) {
-		for (size_t j = 0; j < pollFds.size(); j++) {
-			if (pollFds[j].fd == fd) {
-				proccessOut(pollFds[j]);
-				break;
-			}
-		}
+		proccessOut(pollFds[i]);
 	}
 	// Reserved for handling urgent data reported by the socket.
 	/*if (socket.revents & POLLPRI) {
@@ -152,7 +147,8 @@ void Server::proccessIn(int fd) {
 
 		// Queue the initial welcome response; it will be sent on POLLOUT.
 		clients[acceptRes] = new Client();
-		queueMessage(newUserfd, connectionAcceptMsg);
+		clients[acceptRes]->setFd(acceptRes);
+		sendReplyToClient("", 001, "Welcome to the Internet Relay Network");
 
 		pollFds.push_back(newUserfd);
 		std::cout << "Accepted new client on fd " << acceptRes << std::endl;
@@ -198,7 +194,7 @@ void Server::proccessOut(pollfd& poll) {
 	if (it == clients.end())
 		return;
 	Client* client = it->second;
-	string& output = client->getOutputBuffer();
+	string& output = client->getSendBuffer();
 	if (output.empty()) {
 		poll.events &= ~POLLOUT;
 		return;
@@ -234,6 +230,8 @@ void Server::proccessOut(pollfd& poll) {
 void Server::removeClient(int fd) {
 	client_iterator it = clients.find(fd);
 	if (it != clients.end()) {
+		if (nicknames.find(it->second->getNickname()) != nicknames.end())
+			nicknames.erase(it->second->getNickname());
 		delete it->second;
 		clients.erase(fd);
 	}
@@ -263,6 +261,16 @@ void Server::removeClient(int fd) {
 void Server::queueMessage(pollfd& poll, const string& msg) {
 	clients[poll.fd]->queueOneCommandToBuffer(msg);
 	poll.events |= POLLOUT;
+}
+
+pollfd& Server::findPollfd(int fd) {
+	for (size_t i = 0; i < pollFds.size(); i++) {
+		if (pollFds[i].fd == fd)
+			return pollFds[i];
+	}
+	stringstream fdString;
+	fdString << fd;
+	throw std::runtime_error("Pollfd not found for fd " + fdString.str());
 }
 
 /**
@@ -311,4 +319,70 @@ void Server::start() {
 	pollFds.push_back(listenfd);
 
 	mainLoop();
+}
+
+/**
+ * @brief Changes a client's nickname.
+ * @details Updates the client's nickname and the `nicknames` map. If the new
+ *  nickname is already in use, sends an error reply to the client.
+ * 
+ * @param[in] nickname New nickname to assign to the client.
+ * @param[in] client Pointer to the `Client` object whose nickname is being changed.
+ * @throw std::runtime_error If the client pointer is null.
+ */
+void Server::changeNickname(const string& nickname, Client* client) {
+	if (!client)
+		throw std::runtime_error("Client pointer is null");
+
+	if (nicknames.find(nickname) != nicknames.end()) {
+		sendReplyToClient(client->getNickname(), 433, nickname + " :Nickname is already in use");
+		return;
+	}
+
+	nicknames[nickname] = client;
+	if (!client->getNickname().empty())
+		nicknames.erase(client->getNickname());
+	client->setNickname(nickname);
+}
+
+/**
+ * @brief Sends a reply message to a client.
+ * @details Constructs a reply message with the specified code and text, and
+ *  queues it for sending to the client identified by the nickname. If the
+ *  nickname is not registered, the function does nothing.
+ * 
+ * @param[in] nickname Nickname of the client to send the reply to.
+ * @param[in] code Numeric reply code to include in the message.
+ * @param[in] msg Text of the reply message.
+ * @throw std::runtime_error If the client is not found in the `nicknames` map.
+ */
+void Server::sendReplyToClient(const string& nickname, int code, const string& msg) {
+	nickname_iterator it = nicknames.find(nickname);
+	if (it == nicknames.end())
+		throw std::runtime_error("Client not found");
+
+	stringstream ss;
+	ss << ":irc.miservidor.com " << code << " " << nickname << " " << msg;
+	queueMessage(findPollfd(it->second->getFd()), ss.str());
+}
+
+/**
+ * @brief Sends a private message to a client.
+ * @details Constructs a private message with the specified sender, recipient, and content, and
+ *  queues it for sending to the recipient. If the recipient is not registered, the function
+ *  throws a runtime error.
+ *
+ * @param[in] sender Nickname of the client sending the message.
+ * @param[in] recipient Nickname of the client to send the message to.
+ * @param[in] msg Text of the private message.
+ * @throw std::runtime_error If the recipient is not found in the `nicknames` map.
+ */
+void Server::sendMessageToClient(const string& sender, const string& recipient, const string& msg) {
+	nickname_iterator it = nicknames.find(recipient);
+	if (it == nicknames.end())
+		throw std::runtime_error("Client not found");
+
+	stringstream ss;
+	ss << ":" << sender << " PRIVMSG " << recipient << " :" << msg;
+	queueMessage(findPollfd(it->second->getFd()), ss.str());
 }

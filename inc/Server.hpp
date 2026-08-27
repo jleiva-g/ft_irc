@@ -104,6 +104,8 @@ class	Server {
 		 * @details These methods provide convenient ways to look up clients by file descriptor
 		 *  or nickname, and channels by name. They return pointers to the corresponding
 		 *  objects or `nullptr` if the requested entity does not exist.
+		 * 
+		 * @{
 		 */
 		Client*		getClient(int fd) const;
 		Client*		getClientByNickname(const std::string& nickname) const;

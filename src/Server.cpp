@@ -322,6 +322,16 @@ void Server::start() {
 }
 
 /**
+ * @brief Checks if a provided password matches the server's password.
+ * @details Compares the provided password string with the server's configured
+ *  password and returns true if they match, false otherwise.
+ * 
+ * @param[in] pass Password string to check against the server's password.
+ * @return true if the passwords match, false otherwise.
+ */
+bool Server::checkPassword(const string& pass) const { return pass == password; }
+
+/**
  * @brief Changes a client's nickname.
  * @details Updates the client's nickname and the `nicknames` map. If the new
  *  nickname is already in use, sends an error reply to the client.
@@ -386,3 +396,206 @@ void Server::sendMessageToClient(const string& sender, const string& recipient, 
 	ss << ":" << sender << " PRIVMSG " << recipient << " :" << msg;
 	queueMessage(findPollfd(it->second->getFd()), ss.str());
 }
+
+/**
+ * @brief Sends a message to all members of a channel.
+ * @details Constructs a message with the specified sender, channel name, and content, and
+ *  queues it for sending to all members of the channel except the sender. If the channel
+ *  does not exist, the function throws a runtime error.
+ * 
+ * @param[in] sender Nickname of the client sending the message.
+ * @param[in] channelName Name of the channel to send the message to.
+ * @param[in] msg Text of the message to send to the channel.
+ * @throw std::runtime_error If the channel is not found in the `channels` map.
+ */
+void Server::sendMessageToChannel(const string& sender, const string& channelName, const string& msg) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		throw std::runtime_error("Channel not found");
+
+	Channel* channel = it->second;
+	const std::set<Client*>& members = channel->getMembers();
+
+	for (std::set<Client*>::const_iterator it = members.begin(); it != members.end(); ++it) {
+		Client* member = *it;
+		if (member->getNickname() != sender) {
+			stringstream ss;
+			ss << ":" << sender << " PRIVMSG " << channelName << " :" << msg;
+			queueMessage(findPollfd(member->getFd()), ss.str());
+		}
+	}
+}
+
+/**
+ * @brief Sends a raw message to a client.
+ * @details Queues the specified raw message for sending to the client. If the
+ *  client pointer is null, the function throws a runtime error.
+ * 
+ * @param[in] client Pointer to the `Client` object to send the raw message to.
+ * @param[in] rawLine Raw message to send to the client.
+ * @throw std::runtime_error If the client pointer is null.
+ */
+void Server::sendRaw(Client* client, const string& rawLine) {
+	if (!client)
+		throw std::runtime_error("Client pointer is null");
+
+	queueMessage(findPollfd(client->getFd()), rawLine);
+}
+
+
+/**
+ * @brief Broadcasts a message to all members of a channel, excluding a specific client.
+ * @details Constructs a message with the specified raw line and channel name, and
+ *  queues it for sending to all members of the channel except the excluded client.
+ * 
+ * @param[in] rawLine Raw message to broadcast to the channel.
+ * @param[in] channelName Name of the channel to broadcast the message to.
+ * @param[in] exclude Pointer to the `Client` object to exclude from receiving the message. If null, no client is excluded.
+ * @throw std::runtime_error If the channel is not found in the `channels` map.
+ */
+void Server::broadcastToChannel(const string& rawLine, const string& channelName, Client* exclude) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		throw std::runtime_error("Channel not found");
+
+	Channel* channel = it->second;
+	const std::set<Client*>& members = channel->getMembers();
+
+	for (std::set<Client*>::const_iterator it = members.begin(); it != members.end(); ++it) {
+		Client* member = *it;
+		if (member != exclude) {
+			queueMessage(findPollfd(member->getFd()), rawLine);
+		}
+	}
+}
+
+/**
+ * @brief Adds a new channel to the server.
+ * @details Creates a new `Channel` object with the specified name and adds it
+ *  to the `channels` map. If a channel with the same name already exists, the
+ *  function throws a runtime error.
+ * 
+ * @param[in] channelName Name of the new channel to add.
+ * @throw std::runtime_error If a channel with the same name already exists.
+ */
+void Server::addChannel(const string& channelName) {
+	if (channels.find(channelName) != channels.end())
+		throw std::runtime_error("Channel already exists");
+
+	Channel* channel = new Channel(channelName);
+	channels[channelName] = channel;
+}
+
+/**
+ * @brief Removes a channel from the server.
+ * @details Deletes the `Channel` object and removes it from the `channels`
+ *  map. If the channel does not exist, the function throws a runtime error.
+ * 
+ * @param[in] channelName Name of the channel to remove.
+ * @throw std::runtime_error If the channel is not found in the `channels` map.
+ */
+void Server::removeChannel(const string& channelName) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		throw std::runtime_error("Channel not found");
+
+	delete it->second;
+	channels.erase(it);
+}
+
+/**
+ * @brief Adds a client to a channel.
+ * @details Adds the specified `Client` object to the member list of the
+ *  `Channel` identified by the channel name. If the channel does not exist,
+ *  the function throws a runtime error.
+ *
+ * @param[in] channelName Name of the channel to add the client to.
+ * @param[in] client Pointer to the `Client` object to add to the channel.
+ * @throw std::runtime_error If the channel is not found in the `channels` map.
+ */
+void Server::addClientToChannel(const string& channelName, Client* client) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		throw std::runtime_error("Channel not found");
+
+	it->second->addMember(client);
+}
+
+/**
+ * @brief Removes a client from a channel.
+ * @details Removes the specified `Client` object from the member list of the
+ *  `Channel` identified by the channel name. If the channel does not exist,
+ *  the function throws a runtime error.
+ *
+ * @param[in] channelName Name of the channel to remove the client from.
+ * @param[in] client Pointer to the `Client` object to remove from the channel.
+ * @throw std::runtime_error If the channel is not found in the `channels` map.
+ */
+void Server::removeClientFromChannel(const string& channelName, Client* client) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		throw std::runtime_error("Channel not found");
+
+	it->second->removeMember(client);
+}
+
+/**
+ * @brief Adds an operator to a channel.
+ * @details Adds the specified `Client` object to the operator list of the
+ *  `Channel` identified by the channel name. If the channel does not exist,
+ *  the function throws a runtime error.
+ *
+ * @param[in] channelName Name of the channel to add the operator to.
+ * @param[in] client Pointer to the `Client` object to add as an operator.
+ * @throw std::runtime_error If the channel is not found in the `channels` map.
+ */
+void Server::addOperatorToChannel(const string& channelName, Client* client) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		throw std::runtime_error("Channel not found");
+
+	it->second->addOperator(client);
+}
+
+/**
+ * @brief Removes an operator from a channel.
+ * @details Removes the specified `Client` object from the operator list of the
+ *  `Channel` identified by the channel name. If the channel does not exist,
+ *  the function throws a runtime error.
+ *
+ * @param[in] channelName Name of the channel to remove the operator from.
+ * @param[in] client Pointer to the `Client` object to remove from the channel.
+ * @throw std::runtime_error If the channel is not found in the `channels` map.
+ */
+void Server::removeOperatorFromChannel(const string& channelName, Client* client) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		throw std::runtime_error("Channel not found");
+
+	it->second->removeOperator(client);
+}
+
+Client* Server::getClient(int fd) const {
+	client_iterator it = clients.find(fd);
+	if (it != clients.end())
+		return it->second;
+	return nullptr;
+}
+
+Client* Server::getClientByNickname(const string& nickname) const {
+	nickname_iterator it = nicknames.find(nickname);
+	if (it != nicknames.end())
+		return it->second;
+	return nullptr;
+}
+
+bool Server::isNicknameInUse(const string& nickname) const { return nicknames.find(nickname) != nicknames.end(); }
+
+Channel* Server::getChannel(const string& channelName) const {
+	channel_iterator it = channels.find(channelName);
+	if (it != channels.end())
+		return it->second;
+	return nullptr;
+}
+
+bool Server::channelExists(const string& channelName) const { return channels.find(channelName) != channels.end(); }

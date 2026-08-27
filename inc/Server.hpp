@@ -110,4 +110,7 @@ class	Server {
 		bool		isNicknameInUse(const std::string& nickname) const;
 		Channel*	getChannel(const std::string& channelName) const;
 		bool		channelExists(const std::string& channelName) const;
+		/**
+		 * @}
+		 */
 };

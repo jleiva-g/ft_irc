@@ -500,7 +500,7 @@ void Server::removeChannel(const string& channelName) {
 		throw std::runtime_error("Channel not found");
 
 	delete it->second;
-	channels.erase(it);
+	channels.erase(channelName);
 }
 
 /**
@@ -579,14 +579,14 @@ Client* Server::getClient(int fd) const {
 	client_iterator it = clients.find(fd);
 	if (it != clients.end())
 		return it->second;
-	return nullptr;
+	return NULL;
 }
 
 Client* Server::getClientByNickname(const string& nickname) const {
 	nickname_iterator it = nicknames.find(nickname);
 	if (it != nicknames.end())
 		return it->second;
-	return nullptr;
+	return NULL;
 }
 
 bool Server::isNicknameInUse(const string& nickname) const { return nicknames.find(nickname) != nicknames.end(); }
@@ -595,7 +595,7 @@ Channel* Server::getChannel(const string& channelName) const {
 	channel_iterator it = channels.find(channelName);
 	if (it != channels.end())
 		return it->second;
-	return nullptr;
+	return NULL;
 }
 
 bool Server::channelExists(const string& channelName) const { return channels.find(channelName) != channels.end(); }

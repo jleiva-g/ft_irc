@@ -4,12 +4,15 @@
 
 #include <cctype>
 #include <sstream>
+#include <cstdlib>
 
 using std::toupper;
 using std::isalpha;
 using std::isalnum;
 using std::getline;
 using std::stringstream;
+using std::isdigit;
+using std::atoi;
 
 static void	parseCommand(const string& raw, string& name, vector<string>& args) {
 	string	line = raw;
@@ -23,15 +26,14 @@ static void	parseCommand(const string& raw, string& name, vector<string>& args) 
 		return;
 
 	size_t	end = line.find(' ', pos);
-	if (end == string::npos) {
+	if (end == string::npos)
 		name = line.substr(pos);
-		return;
-	}
+	else
+		name = line.substr(pos, end - pos);
+	pos = end;
 
-	name = line.substr(pos, end - pos);
 	for (size_t i = 0; i < name.size(); ++i)
 		name[i] = std::toupper(static_cast<unsigned char>(name[i]));
-	pos = end;
 
 	while (pos < line.size()) {
 		while (pos < line.size() && line[pos] == ' ')
@@ -299,8 +301,105 @@ static void	handleTopic(Client& client, Server& server, const vector<string>& ar
 	// server.setTopic(client, args[0], args[1]);
 }
 
+static bool	isValidMode(char c) {
+	return (c == 'i' || c == 't' || c == 'k' || c == 'o' || c == 'l');
+}
+
+static bool	isValidLimit(const string& value) {
+	if (value.empty())
+		return false;
+
+	for (size_t i = 0; i < value.size(); ++i)
+		if (!isdigit(static_cast<unsigned char>(value[i])))
+			return false;
+
+	return atoi(value.c_str()) > 0;
+}
+
 // MODE <channel> <mode> [<mode parameters>...]
 static void	handleMode(Client& client, Server& server, const vector<string>& args) {
+	if (!client.isRegistered()) {
+		// 451 ERR_NOTREGISTERED
+		return;
+	}
+	if (args.empty() || (args.size() > 1 && args[1].empty())) {
+		// 461 ERR_NEEDMOREPARAMS
+		return;
+	}
+	if (args.size() == 1) {
+		// server.sendChannelModes(client, args[0]);
+		return;
+	}
+
+	bool	set = true;
+	size_t	argsIndex = 2;
+	for (size_t i = 0; i < args[1].size(); i++) {
+		if (args[1][i] == '+') {
+			set = true;
+			continue;
+		}
+		if (args[1][i] == '-') {
+			set = false;
+			continue;
+		}
+		if (!isValidMode(args[1][i])) {
+			// 472 ERR_UNKNOWNMODE
+			continue;
+		}
+		// channel exists?		403 ERR_NOSUCHCHANNEL
+		// client in channel?	442 ERR_NOTONCHANNEL
+		// client op?			482 ERR_CHANOPRIVSNEEDED
+		// These errors need to be checked once before processing so
+		// either have a server function to check for these errors or
+		// move the rest of this function to server
+		// server.handleMode(Checks??)(client, args([0]?));
+		switch (args[1][i]) {
+			case 'i':
+				// server.setInviteOnly(client, args[0], set);
+				break;
+			case 't':
+				// server.setTopicRestricted(client, args[0], set);
+				break;
+			case 'k':
+				if (set) {
+					if (argsIndex >= args.size()) {
+						// 461 ERR_NEEDMOREPARAMS
+						continue;
+					}
+					if (args[argsIndex].empty()) {
+						argsIndex++;
+						// 461 ERR_NEEDMOREPARAMS
+						continue;
+					}
+					// server.setChannelKey(client, args[0], args[argsIndex++]);
+				} else {
+					// server.removeChannelKey(client, args[0]);
+				}
+				break;
+			case 'o':
+				if (argsIndex >= args.size()) {
+					// 461 ERR_NEEDMOREPARAMS
+					continue;
+				}
+				// server.setOp(client, args[0], args[argsIndex++], set);
+				break;
+			case 'l':
+				if (set) {
+					if (argsIndex >= args.size()) {
+						// 461 ERR_NEEDMOREPARAMS
+						continue;
+					}
+					if (!isValidLimit(args[argsIndex])) {
+						argsIndex++;
+						continue;
+					}
+					// server.setUserLimit(client, args[0], args[argsIndex++]);
+				} else {
+					// server.removeUserLimit(client, args[0]);
+				}
+				break;
+		}
+	}
 }
 
 void	Command::handleCommand(Client& client, Server& server, const string& raw) {

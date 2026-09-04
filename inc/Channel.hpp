@@ -18,8 +18,7 @@ class	Channel {
 		bool			inviteOnly;
 		bool			topicOpOnly;
 		bool			hasKey;
-		bool			hasUserLimit;
-		size_t			userLimit;
+		long			userLimit;
 	public:
 		Channel();
 		Channel(const string& name);
@@ -36,7 +35,7 @@ class	Channel {
 		bool				isInviteOnly() const { return inviteOnly; }
 		bool				isTopicOpOnly() const { return topicOpOnly; }
 		bool				itHasKey() const { return hasKey; }
-		bool				itHasUserLimit() const { return hasUserLimit; }
+		bool				itHasUserLimit() const { return userLimit != -1; }
 		const string&		getKey() const { return key; }
 		size_t				getUserLimit() const { return userLimit; }
 		void				setName(const string& value) { name = value; }
@@ -45,6 +44,5 @@ class	Channel {
 		void				setInviteOnly(bool value) { inviteOnly = value; }
 		void				setTopicOpOnly(bool value) { topicOpOnly = value; }
 		void				setHasKey(bool value) { hasKey = value; }
-		void				setHasUserLimit(bool value) { hasUserLimit = value; }
 		void				setUserLimit(size_t value) { userLimit = value; }
 };

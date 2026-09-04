@@ -10,7 +10,7 @@ Channel::Channel()
       topicOpOnly(false),
       hasKey(false),
       hasUserLimit(false),
-      userLimit(0)
+      userLimit(-1)
 {}
 
 Channel::Channel(const string& name)
@@ -23,7 +23,7 @@ Channel::Channel(const string& name)
       topicOpOnly(false),
       hasKey(false),
       hasUserLimit(false),
-      userLimit(0)
+      userLimit(-1)
 {}
 
 void Channel::addMember(Client* client)

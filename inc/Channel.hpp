@@ -48,10 +48,10 @@
 			bool				isOperator(Client* client) const;
 			bool				isInvited(Client * Client) const;
 
-			bool				isInviteOnly() const;
-			bool				isTopicOpOnly() const;
-			bool				itHasKey() const;
-			bool				itHasUserLimit() const;
+			bool				hasModeInviteOnly() const;
+			bool				hasModeTopicOpOnly() const;
+			bool				hasModeKey() const;
+			bool				hasModeUserLimit() const;
 
 			void				setName(const string& value);
 			void				setTopic(const string& value);

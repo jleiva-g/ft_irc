@@ -81,22 +81,22 @@ size_t Channel::getUserLimit() const
   return userLimit;
 }
 
-bool Channel::isInviteOnly() const
+bool Channel::hasModeInviteOnly() const
 {
   return (modes & MODE_INVITE_ONLY) != 0;
 }
 
-bool Channel::isTopicOpOnly() const
+bool Channel::hasModeTopicOpOnly() const
 {
   return (modes & MODE_TOPIC_OP_ONLY) != 0;
 }
 
-bool Channel::itHasKey() const
+bool Channel::hasModeKey() const
 {
   return (modes & MODE_KEY) != 0;
 }
 
-bool Channel::itHasUserLimit() const
+bool Channel::hasModeUserLimit() const
 {
   return (modes & MODE_USER_LIMIT) != 0;
 }

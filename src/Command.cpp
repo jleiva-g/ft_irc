@@ -110,15 +110,18 @@ static void	handlePass(Client& client, Server& server, const vector<string>& arg
 	if (args.size() > 1)
 		return;
 	if (args.empty()) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
 		return;
 	}
 	if (client.isRegistered()) {
-		server.sendCodeToClient(client, ERR_ALREADYREGISTERED);
+		server.sendCodeToClient(client, ERR_ALREADYREGISTERED, getNumericInfo(ERR_ALREADYREGISTERED).message);
 		return;
 	}
-	// pass match?	464 ERR_PASSWDMISMATCH
-	server.setPassAccepted(client, args[0]);
+	if (!server.checkPassword(args[0])) {
+		server.sendCodeToClient(client, ERR_PASSWDMISMATCH, getNumericInfo(ERR_PASSWDMISMATCH).message);
+		return;
+	}
+	server.setPassAccepted(client);
 	tryRegister(client, server);
 }
 
@@ -174,16 +177,19 @@ static bool	isValidNickname(const string& nickname) {
  */
 static void	handleNick(Client& client, Server& server, const vector<string>& args) {
 	if (args.empty() || args[0].empty()) {
-		server.sendCodeToClient(client, ERR_NONICKNAMEGIVEN);
+		server.sendCodeToClient(client, ERR_NONICKNAMEGIVEN, getNumericInfo(ERR_NONICKNAMEGIVEN).message);
 		return;
 	}
 	if (args.size() > 1)
 		return;
 	if (!isValidNickname(args[0])) {
-		server.sendCodeToClient(client, ERR_ERRONEUSNICKNAME);
+		server.sendCodeToClient(client, ERR_ERRONEUSNICKNAME, getNumericInfo(ERR_ERRONEUSNICKNAME).message);
 		return;
 	}
-	// nickname taken?	433 ERR_NICKNAMEINUSE
+	if (server.isNicknameInUse(args[0])) {
+		server.sendCodeToClient(client, ERR_NICKNAMEINUSE, getNumericInfo(ERR_NICKNAMEINUSE).message);
+		return;
+	}
 	server.setNickname(client, args[0]);
 	tryRegister(client, server);
 }
@@ -199,13 +205,13 @@ static void	handleNick(Client& client, Server& server, const vector<string>& arg
  */
 static void	handleUser(Client& client, Server& server, const vector<string>& args) {
 	if (args.size() < 4) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
 		return;
 	}
 	if (args.size() > 4)
 		return;
 	if (client.isRegistered()) {
-		server.sendCodeToClient(client, ERR_ALREADYREGISTERED);
+		server.sendCodeToClient(client, ERR_ALREADYREGISTERED, getNumericInfo(ERR_ALREADYREGISTERED).message);
 		return;
 	}
 	client.setUsername(args[0]);
@@ -241,11 +247,11 @@ static bool isValidChannelName(const string& name)
  */
 static void	handleJoin(Client& client, Server& server, const vector<string>& args) {
 	if (!client.isRegistered()) {
-		server.sendCodeToClient(client, ERR_NOTREGISTERED);
+		server.sendCodeToClient(client, ERR_NOTREGISTERED, getNumericInfo(ERR_NOTREGISTERED).message);
 		return;
 	}
 	if (args.empty()) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
 		return;
 	}
 	if (args.size() > 2)
@@ -267,14 +273,22 @@ static void	handleJoin(Client& client, Server& server, const vector<string>& arg
 		if (args.size() > 1)
 			getline(keys, key, ',');
 		if (!isValidChannelName(name)) {
-			server.sendCodeToClient(client, ERR_BADCHANMASK);
+			server.sendCodeToClient(client, ERR_BADCHANMASK, getNumericInfo(ERR_BADCHANMASK).message);
+			continue;
+		}
+		if (server.isChannelFull(name)) {
+			server.sendCodeToClient(client, ERR_CHANNELISFULL, getNumericInfo(ERR_CHANNELISFULL).message);
+			continue;
+		}
+		if (server.isChannelInviteOnly(name) && !server.isClientInvitedToChannel(client, name)) {
+			server.sendCodeToClient(client, ERR_INVITEONLYCHAN, getNumericInfo(ERR_INVITEONLYCHAN).message);
+			continue;
+		}
+		if (server.isChannelKeyProtected(name) && !server.isChannelPass(name, key)) {
+			server.sendCodeToClient(client, ERR_BADCHANNELKEY, getNumericInfo(ERR_BADCHANNELKEY).message);
 			continue;
 		}
 		// channel limit?	405 ERR_TOOMANYCHANNELS
-		// +i?				473 ERR_INVITEONLYCHAN
-		// wrong key?		475 ERR_BADCHANNELKEY
-		// user limit?		471 ERR_CHANNELISFULL
-		// channel exists?	create if needed
 		server.joinChannel(client, name, key);
 	}
 }
@@ -289,19 +303,19 @@ static void	handleJoin(Client& client, Server& server, const vector<string>& arg
  * @param[in,out] server Server managing clients and channels.
  * @param[in] args Command arguments containing message targets and text.
  */
-static void	handlePrivmsg(Client& client, const Server& server, const vector<string>& args) {
+static void	handlePrivmsg(Client& client, Server& server, const vector<string>& args) {
 	if (!client.isRegistered()) {
-		server.sendCodeToClient(client, ERR_NOTREGISTERED);
+		server.sendCodeToClient(client, ERR_NOTREGISTERED, getNumericInfo(ERR_NOTREGISTERED).message);
 		return;
 	}
 	if (args.empty() || args[0].empty()) {
-		server.sendCodeToClient(client, ERR_NORECIPIENT);
+		server.sendCodeToClient(client, ERR_NORECIPIENT, getNumericInfo(ERR_NORECIPIENT).message);
 		return;
 	}
 	if (args.size() > 2)
 		return;
 	if (args.size() < 2 || args[1].empty()) {
-		server.sendCodeToClient(client, ERR_NOTEXTTOSEND);
+		server.sendCodeToClient(client, ERR_NOTEXTTOSEND, getNumericInfo(ERR_NOTEXTTOSEND).message);
 		return;
 	}
 
@@ -312,16 +326,19 @@ static void	handlePrivmsg(Client& client, const Server& server, const vector<str
 		if (target.empty())
 			continue;
 		hasTarget = true;
+		if (!server.isNicknameInUse(target)) {
+			server.sendCodeToClient(client, ERR_NOSUCHNICK, getNumericInfo(ERR_NOSUCHNICK).message);
+			continue;
+		}
 		// channel exists?	403 ERR_NOSUCHCHANNEL
-		// client exists?	401 ERR_NOSUCHNICK
 		if (target[0] == '#' || target[0] == '&'
 			|| target[0] == '+' || target[0] == '!')
 			server.sendMsgToChannel(client, target, args[1]);
 		else
-			server.sendMesgToClient(client, target, args[1]);
+			server.sendMsgToClient(client, target, args[1]);
 	}
 	if (!hasTarget) {
-		server.sendCodeToClient(client, ERR_NORECIPIENT);
+		server.sendCodeToClient(client, ERR_NORECIPIENT, getNumericInfo(ERR_NORECIPIENT).message);
 		return;
 	}
 }
@@ -341,11 +358,11 @@ static void	handlePrivmsg(Client& client, const Server& server, const vector<str
  */
 static void	handleKick(Client& client, Server& server, const vector<string>& args) {
 	if (!client.isRegistered()) {
-		server.sendCodeToClient(client, ERR_NOTREGISTERED);
+		server.sendCodeToClient(client, ERR_NOTREGISTERED, getNumericInfo(ERR_NOTREGISTERED).message);
 		return;
 	}
 	if (args.size() < 2) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
 		return;
 	}
 	if (args.size() > 3)
@@ -397,11 +414,11 @@ static void	handleKick(Client& client, Server& server, const vector<string>& arg
  */
 static void	handleInvite(Client& client, Server& server, const vector<string>& args) {
 	if (!client.isRegistered()) {
-		server.sendCodeToClient(client, ERR_NOTREGISTERED);
+		server.sendCodeToClient(client, ERR_NOTREGISTERED, getNumericInfo(ERR_NOTREGISTERED).message);
 		return;
 	}
 	if (args.size() < 2) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
 		return;
 	}
 	if (args.size() > 2)
@@ -427,11 +444,11 @@ static void	handleInvite(Client& client, Server& server, const vector<string>& a
  */
 static void	handleTopic(Client& client, Server& server, const vector<string>& args) {
 	if (!client.isRegistered()) {
-		server.sendCodeToClient(client, ERR_NOTREGISTERED);
+		server.sendCodeToClient(client, ERR_NOTREGISTERED, getNumericInfo(ERR_NOTREGISTERED).message);
 		return;
 	}
 	if (args.empty()) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
 		return;
 	}
 	if (args.size() > 2)
@@ -495,11 +512,11 @@ static bool	isValidLimit(const string& value) {
  */
 static void	handleMode(Client& client, Server& server, const vector<string>& args) {
 	if (!client.isRegistered()) {
-		server.sendCodeToClient(client, ERR_NOTREGISTERED);
+		server.sendCodeToClient(client, ERR_NOTREGISTERED, getNumericInfo(ERR_NOTREGISTERED).message);
 		return;
 	}
 	if (args.empty() || (args.size() > 1 && args[1].empty())) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
 		return;
 	}
 	if (args.size() == 1) {
@@ -519,13 +536,13 @@ static void	handleMode(Client& client, Server& server, const vector<string>& arg
 			continue;
 		}
 		if (!isValidMode(args[1][i])) {
-			server.sendCodeToClient(client, ERR_UNKNOWNMODE);
+			server.sendCodeToClient(client, ERR_UNKNOWNMODE, getNumericInfo(ERR_UNKNOWNMODE).message);
 			continue;
 		}
 		// channel exists?		403 ERR_NOSUCHCHANNEL
 		// client in channel?	442 ERR_NOTONCHANNEL
 		// client op?			482 ERR_CHANOPRIVSNEEDED
-		server.checkHandle(client, args[0]);
+		//server.checkHandle(client, args[0]);
 		switch (args[1][i]) {
 			case 'i':
 				server.setInviteOnly(client, args[0], set);
@@ -536,12 +553,12 @@ static void	handleMode(Client& client, Server& server, const vector<string>& arg
 			case 'k':
 				if (set) {
 					if (argsIndex >= args.size()) {
-						server.sendCodeToClient(client, ERR_NEEDMOREPARAMS);
+						server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
 						continue;
 					}
 					if (args[argsIndex].empty()) {
 						++argsIndex;
-						server.sendCodeToClient(client, ERR_NEEDMOREPARAMS);
+						server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
 						continue;
 					}
 					server.setChannelKey(client, args[0], args[argsIndex++]);
@@ -551,7 +568,7 @@ static void	handleMode(Client& client, Server& server, const vector<string>& arg
 				break;
 			case 'o':
 				if (argsIndex >= args.size()) {
-					server.sendCodeToClient(client, ERR_NEEDMOREPARAMS);
+					server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
 					continue;
 				}
 				if (set)
@@ -562,7 +579,7 @@ static void	handleMode(Client& client, Server& server, const vector<string>& arg
 			case 'l':
 				if (set) {
 					if (argsIndex >= args.size()) {
-						server.sendCodeToClient(client, ERR_NEEDMOREPARAMS);
+						server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
 						continue;
 					}
 					if (!isValidLimit(args[argsIndex])) {
@@ -612,5 +629,5 @@ void	Command::handleCommand(Client& client, Server& server, const string& raw) {
 	else if (name == "MODE")
 		handleMode(client, server, args);
 	else
-		server.sendCodeToClient(client, ERR_UNKNOWNCOMMAND);
+		server.sendCodeToClient(client, ERR_UNKNOWNCOMMAND, getNumericInfo(ERR_UNKNOWNCOMMAND).message);
 }

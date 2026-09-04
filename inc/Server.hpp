@@ -74,7 +74,7 @@ class	Server {
 		void	joinChannel(Client& client, const string& channelName, const string& key = "");
 		void	partChannel(Client& client, const string& channelName, const string& reason = "");
 
-		// TODO: Mount messages to clients and channels.
+
 		void	sendCodeToClient(Client& client, int code, const string& msg);
 		void	notifyChannelChange(Client& client, const string& channelName, const string& msg);
 		void	broadcastToChannel(const string& channelName, const string& msg, Client* excludeClient = NULL);
@@ -100,4 +100,16 @@ class	Server {
 		void	removeChannelOperator(Client& client, const string& channelName, const string& target);
 		void	setUserLimit(Client& client, const string& channelName, size_t limit);
 		void	removeUserLimit(Client& client, const string& channelName);
+
+		bool	isClientInChannel(Client& client, const string& channelName) const;
+		bool	isClientInvitedToChannel(Client& client, const string& channelName) const;
+		bool	isChannelInviteOnly(const string& channelName) const;
+		bool	isChannelTopicRestricted(const string& channelName) const;
+		bool	isChannelKeyProtected(const string& channelName) const;
+		bool	isChannelFull(const string& channelName) const;
+		bool	isChannelOperator(const string& channelName, const string& nickname) const;
+		bool	channelExists(const string& channelName) const;
+		bool	isNicknameRegistered(const string& nickname) const;
+		bool	passMatch(const string& pass) const;
+		bool	isChannelPass(const string& channelName, const string& pass) const;
 };

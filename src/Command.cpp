@@ -61,7 +61,7 @@ static void	parseCommand(const string& raw, string& name, vector<string>& args) 
 
 	while (pos < line.size()) {
 		while (pos < line.size() && line[pos] == ' ')
-			pos++;
+			++pos;
 		if (pos >= line.size())
 			break;
 		if (line[pos] == ':') {
@@ -152,7 +152,7 @@ static bool	isValidNickname(const string& nickname) {
 	if (!isalpha(c) && !isSpecial(c))
 		return false;
 
-	for (size_t i = 1; i < nickname.size(); i++) {
+	for (size_t i = 1; i < nickname.size(); ++i) {
 		c = static_cast<unsigned char>(nickname[i]);
 		if (!isalnum(c) && !isSpecial(c) && c != '-')
 			return false;
@@ -326,13 +326,15 @@ static void	handlePrivmsg(Client& client, const Server& server, const vector<str
 
 /**
  * @brief Handles the IRC KICK command.
- * @details RFC 2812 syntax: KICK <channel> <user>{,<user>} [<comment>]
- * Parses the target users and optional comment before requesting the server
- * to remove the users from the channel.
- * 
+ * @details RFC 2812 syntax: KICK <channel>{,<channel>} <user>{,<user>} [<comment>]
+ * Parses the target channels, users, and optional comment. A single channel
+ * may target multiple users, while multiple channels require one user per
+ * channel. Each channel/user pair is then passed to the server for validation
+ * and processing.
+ *
  * @param[in,out] client Client sending the command.
  * @param[in,out] server Server managing clients and channels.
- * @param[in] args Command arguments containing the channel, users,
+ * @param[in] args Command arguments containing the channels, users,
  * and optional comment.
  */
 static void	handleKick(Client& client, Server& server, const vector<string>& args) {
@@ -347,24 +349,38 @@ static void	handleKick(Client& client, Server& server, const vector<string>& arg
 	if (args.size() > 3)
 		return;
 
+	stringstream	channels(args[0]);
 	stringstream	users(args[1]);
-	string			nickname;
+	vector<string>	channelNames;
 	vector<string>	nicknames;
-	string			comment;
+	string			value;
+	while (getline(channels, value, ',')) {
+		if (!value.empty())
+			channelNames.push_back(value);
+	}
+	while (getline(users, value, ',')) {
+		if (!value.empty())
+			nicknames.push_back(value);
+	}
+	if (channelNames.empty() || nicknames.empty())
+		return;
+	if (channelNames.size() > 1 && channelNames.size() != nicknames.size())
+		return;
+
+	string	comment;
 	if (args.size() >= 3)
 		comment = args[2];
-	while (getline(users, nickname, ',')) {
-		if (!nickname.empty())
-			nicknames.push_back(nickname);
-	}
-	if (nicknames.empty())
-		return;
 	// channel exists?			403 ERR_NOSUCHCHANNEL
 	// is kicker in channel?	442 ERR_NOTONCHANNEL
 	// is kicker op?			482 ERR_CHANOPRIVSNEEDED
 	// target exists?			401 ERR_NOSUCHNICK
 	// is target in channel?	441 ERR_USERNOTINCHANNEL
-	// server.kickClient(client, args[0], nicknames, comment);
+	if (channelNames.size() == 1) {
+		server.kickClient(client, channelNames[0], nicknames, comment);
+		return;
+	}
+	for (size_t i = 0; i < channelNames.size(); ++i)
+		server.kickClient(client, channelNames[i], nicknames[i], comment);
 }
 
 /**
@@ -489,7 +505,7 @@ static void	handleMode(Client& client, Server& server, const vector<string>& arg
 
 	bool	set = true;
 	size_t	argsIndex = 2;
-	for (size_t i = 0; i < args[1].size(); i++) {
+	for (size_t i = 0; i < args[1].size(); ++i) {
 		if (args[1][i] == '+') {
 			set = true;
 			continue;
@@ -523,7 +539,7 @@ static void	handleMode(Client& client, Server& server, const vector<string>& arg
 						continue;
 					}
 					if (args[argsIndex].empty()) {
-						argsIndex++;
+						++argsIndex;
 						// 461 ERR_NEEDMOREPARAMS
 						continue;
 					}
@@ -546,7 +562,7 @@ static void	handleMode(Client& client, Server& server, const vector<string>& arg
 						continue;
 					}
 					if (!isValidLimit(args[argsIndex])) {
-						argsIndex++;
+						++argsIndex;
 						continue;
 					}
 					// server.setUserLimit(client, args[0], args[argsIndex++]);

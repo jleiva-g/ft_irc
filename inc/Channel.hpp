@@ -21,6 +21,7 @@
 			string			key;
 			set<Client*>	members;
 			set<Client*>	operators;
+			set<Client*>	invited;
 			unsigned int	modes;
 			long			userLimit;
 
@@ -32,6 +33,8 @@
 			void				removeMember(Client* client);
 			void				addOperator(Client* client);
 			void				removeOperator(Client* client);
+			void				addInvited(Client* client);
+			void				removeInvited(Client* client);
 			void				changeMode(char mode, bool enable);
 
 			const string&		getName() const;
@@ -43,6 +46,7 @@
 
 			bool				isMember(Client* client) const;
 			bool				isOperator(Client* client) const;
+			bool				isInvited(Client * Client) const;
 
 			bool				isInviteOnly() const;
 			bool				isTopicOpOnly() const;

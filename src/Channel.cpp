@@ -6,6 +6,7 @@ Channel::Channel()
       key(),
       members(),
       operators(),
+      invited(),
       modes(0),
       userLimit(-1)
 {}
@@ -16,6 +17,7 @@ Channel::Channel(const string& name)
       key(),
       members(),
       operators(),
+      invited(),
       modes(0),
       userLimit(-1)
 {}
@@ -185,6 +187,26 @@ void Channel::removeMember(Client* client)
 }
 
 /**
+ * @brief Adds a client to the the invitation list.
+ * @details Null client pointers are ignored.
+ * @param[in] client Client to add to the set.
+ */
+void Channel::addInvited(Client* client)
+{
+  if (client)
+    invited.insert(client);
+}
+
+/**
+ * @brief Removes a client from the invitation list.
+ * @param[in] client Client to remove from the set.
+ */
+void Channel::removeInvited(Client* client)
+{
+    invited.erase(client);
+}
+
+/**
  * @brief Checks whether a client belongs to the channel.
  * @param[in] client Client to look up.
  * @return True when the client is a channel member.
@@ -192,6 +214,19 @@ void Channel::removeMember(Client* client)
 bool Channel::isMember(Client* client) const
 {
   if (members.find(client) != members.end())
+    return true;
+  else
+    return false;
+}
+
+/**
+ * @brief Checks whether a client belongs to the invitations list.
+ * @param[in] client Client to look up.
+ * @return True when the client has being invited.
+ */
+bool Channel::isInvited(Client* client) const
+{
+  if (invited.find(client) != invited.end())
     return true;
   else
     return false;

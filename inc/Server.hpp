@@ -90,6 +90,7 @@ class	Server {
 
 
 		void	sendChannelModes(Client& client, const string& channelName);
+		void	sendChannelModesToAll(Client& client, const string& channelName);
 		bool	canModifyChannel(Client& client, const string& channelName) const;
 		void	setInviteOnly(Client& client, const string& channelName, bool inviteOnly);
 		void	setTopicRestricted(Client& client, const string& channelName, bool topicOpOnly);

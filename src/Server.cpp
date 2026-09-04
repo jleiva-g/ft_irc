@@ -25,6 +25,7 @@
 #include <cstring>
 #include <sstream>
 #include <iostream>
+#include <iomanip>
 
 using std::stringstream;
 
@@ -351,7 +352,7 @@ void Server::setRegistered(Client& client) {
 	client.setRegistered(true);
 	stringstream ss;
 
-	ss << ":Welcome to the Internet Relay Network " << client.getUsername() << "@host";
+	ss << ":Welcome to the Internet Relay Network " << client.getNickname() << "!" << client.getUsername() << "@host";
 	sendCodeToClient(client, 001, ss.str());
 
 	ss.str("");
@@ -375,7 +376,8 @@ bool Server::isNicknameInUse(const string& nickname) const { return nicknames.fi
 
 void Server::leaveAllChannels(Client& client) {
 	for (channel_iterator it = channels.begin(); it != channels.end(); it++)
-		partChannel(client, it->first, "Client disconnected");
+		if (it->second->isMember(&client))
+			partChannel(client, it->first, "Client disconnected");
 }
 
 void Server::joinChannel(Client& client, const string& channelName, const string& key) {
@@ -399,11 +401,12 @@ void Server::joinChannel(Client& client, const string& channelName, const string
 
 void Server::partChannel(Client& client, const string& channelName, const string& reason) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
+
 	stringstream ss;
-	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host PART :" << channelName << " :" << reason;
+	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host PART " << channelName;
+	if (!reason.empty())
+		ss << " :" << reason;
 	notifyChannelChange(client, channelName, ss.str());
 	queueMessage(findPollfd(client.getFd()), ss.str());
 	channel->removeMember(client);
@@ -415,15 +418,14 @@ void Server::partChannel(Client& client, const string& channelName, const string
 
 void Server::sendCodeToClient(Client& client, int code, const string& msg) {
 	stringstream ss;
-	ss << ":ft_irc.server" << code << " " << client.getNickname() << " " << msg;
+	ss << ":ft_irc.server " << std::setfill('0') << std::setw(3) << code << " " << client.getNickname() << " " << msg;
 	queueMessage(findPollfd(client.getFd()), ss.str());
 }
 
 void Server::notifyChannelChange(Client& client, const string& channelName, const string& msg) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
+
 	const set<Client*>& members = channel->getMembers();
 	for (set<Client*>::const_iterator mit = members.begin(); mit != members.end(); mit++) {
 		Client* member = *mit;
@@ -435,9 +437,8 @@ void Server::notifyChannelChange(Client& client, const string& channelName, cons
 
 void Server::broadcastToChannel(const string& channelName, const string& msg, Client* excludeClient) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
+
 	const set<Client*>& members = channel->getMembers();
 	for (set<Client*>::const_iterator mit = members.begin(); mit != members.end(); mit++) {
 		Client* member = *mit;
@@ -448,8 +449,6 @@ void Server::broadcastToChannel(const string& channelName, const string& msg, Cl
 
 void Server::sendMsgToClient(Client& client, const string& target, const string& msg) {
 	nickname_iterator it = nicknames.find(target);
-	if (it == nicknames.end())
-		return;
 	Client* targetClient = it->second;
 
 	stringstream ss;
@@ -459,9 +458,8 @@ void Server::sendMsgToClient(Client& client, const string& target, const string&
 
 void Server::sendMsgToChannel(Client& client, const string& channelName, const string& msg) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
+
 	const set<Client*>& members = channel->getMembers();
 	for (set<Client*>::const_iterator mit = members.begin(); mit != members.end(); mit++) {
 		Client* member = *mit;
@@ -475,20 +473,14 @@ void Server::sendMsgToChannel(Client& client, const string& channelName, const s
 
 void Server::kickClient(Client& client, const string& channelName, const string& targetNickname, const string& reason) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
 	nickname_iterator nit = nicknames.find(targetNickname);
-	if (nit == nicknames.end())
-		return;
 
 	Client* targetClient = nit->second;
 	stringstream ss;
-	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host KICK " << channelName << " " << targetNickname << " :" << reason;
+	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host KICK " << channelName << " " << targetNickname << " :" << (reason.empty() ? "No reason provided" : reason);
 	notifyChannelChange(client, channelName, ss.str());
-
 	channel->removeMember(*targetClient);
-	queueMessage(findPollfd(targetClient->getFd()), "You have been kicked from " + channelName + ": " + reason);
 }
 
 void Server::kickClient(Client& client, const string& channelName, const vector<string>& targetClients, const string& reason) {
@@ -498,12 +490,8 @@ void Server::kickClient(Client& client, const string& channelName, const vector<
 
 void Server::inviteClient(Client& client, const string& targetNickname, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
 	nickname_iterator nit = nicknames.find(targetNickname);
-	if (nit == nicknames.end())
-		return;
 
 	Client* targetClient = nit->second;
 	stringstream ss;
@@ -511,36 +499,38 @@ void Server::inviteClient(Client& client, const string& targetNickname, const st
 	queueMessage(findPollfd(targetClient->getFd()), ss.str());
 
 	ss.str("");
-	ss << client.getNickname() << " " << targetNickname << " " << channelName;
+	ss << targetNickname << " " << channelName;
 	sendCodeToClient(client, 341, ss.str());
 
-	channel->addMember(*targetClient);
-	queueMessage(findPollfd(targetClient->getFd()), "You have been invited to " + channelName + " by " + client.getNickname());
+	channel->inviteClient(*targetClient);
 }
 
 void Server::sendTopic(Client& client, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
-	queueMessage(findPollfd(client.getFd()), "Current topic for " + channelName + ": " + channel->getTopic());
+
+	stringstream ss;
+	int code = channel->getTopic().empty() ? 331 : 332;
+	if (channel->getTopic().empty())
+		ss << channelName << " :No topic is set for this channel";
+	else
+		ss << channelName << " :" << channel->getTopic();
+	sendCodeToClient(client, code, ss.str());
 }
 
 void Server::setTopic(Client& client, const string& channelName, const string& topic) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
-	if (!canModifyChannel(client, channelName))
-		return;
 	channel->setTopic(topic);
-	notifyChannelChange(client, channelName, "Topic for " + channelName + " has been changed to: " + topic);
+
+	stringstream ss;
+	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host TOPIC " << channelName << " :" << topic;
+	queueMessage(findPollfd(client.getFd()), ss.str());
+	notifyChannelChange(client, channelName, ss.str());
 }
 
 void Server::sendChannelModes(Client& client, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
 	string modes = "+";
 	if (channel->isInviteOnly())
@@ -551,109 +541,100 @@ void Server::sendChannelModes(Client& client, const string& channelName) {
 		modes += "k";
 	if (channel->hasUserLimit())
 		modes += "l";
-	queueMessage(findPollfd(client.getFd()), "Current modes for " + channelName + ": " + modes);
+	
+	stringstream ss;
+	ss << channelName << " " << modes;
+	if (channel->hasKey())
+		ss << " " << channel->getKey();
+	if (channel->hasUserLimit())
+		ss << " " << channel->getUserLimit();
+	sendCodeToClient(client, 324, ss.str());
+}
+
+// TODO Add this at the end of the modifications of the channel modes, send the list of operators in the channel.
+void Server::sendChannelModesToAll(Client& client, const string& channelName) {
+	channel_iterator it = channels.find(channelName);
+
+	Channel* channel = it->second;
+	string modes = "+";
+	if (channel->isInviteOnly())
+		modes += "i";
+	if (channel->isTopicOpOnly())
+		modes += "t";
+	if (channel->hasKey())
+		modes += "k";
+	if (channel->hasUserLimit())
+		modes += "l";
+
+	stringstream ss;
+	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host MODE " << channelName << " " << modes;
+	if (channel->hasKey())
+		ss << " " << channel->getKey();
+	if (channel->hasUserLimit())
+		ss << " " << channel->getUserLimit();
+
+	notifyChannelChange(client, channelName, ss.str());
+	queueMessage(findPollfd(client.getFd()), ss.str());
 }
 
 bool Server::canModifyChannel(Client& client, const string& channelName) const {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return false;
 	Channel* channel = it->second;
 	return channel->isOperator(&client);
 }
 
 void Server::setInviteOnly(Client& client, const string& channelName, bool inviteOnly) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
-	if (!canModifyChannel(client, channelName))
-		return;
 	channel->setInviteOnly(inviteOnly);
-	notifyChannelChange(client, channelName, "Invite-only mode for " + channelName + " has been " + (inviteOnly ? "enabled" : "disabled"));
 }
 
 void Server::setTopicRestricted(Client& client, const string& channelName, bool topicOpOnly) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
-	if (!canModifyChannel(client, channelName))
-		return;
 	channel->setTopicOpOnly(topicOpOnly);
-	notifyChannelChange(client, channelName, "Topic-restricted mode for " + channelName + " has been " + (topicOpOnly ? "enabled" : "disabled"));
 }
 
 void Server::setChannelKey(Client& client, const string& channelName, const string& key) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
-	if (!canModifyChannel(client, channelName))
-		return;
 	channel->setKey(key);
-	notifyChannelChange(client, channelName, "Key for " + channelName + " has been set to: " + key);
 }
 
 void Server::removeChannelKey(Client& client, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
-	if (!canModifyChannel(client, channelName))
-		return;
 	channel->removeKey();
-	notifyChannelChange(client, channelName, "Key for " + channelName + " has been removed");
 }
 
 void Server::setChannelOperator(Client& client, const string& channelName, const string& targetNickname) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
-	if (!canModifyChannel(client, channelName))
-		return;
 	nickname_iterator nit = nicknames.find(targetNickname);
-	if (nit == nicknames.end())
-		return;
+
 	Client* targetClient = nit->second;
 	channel->addOperator(targetClient);
-	notifyChannelChange(client, channelName, targetNickname + " has been granted operator status in " + channelName);
 }
 
 void Server::removeChannelOperator(Client& client, const string& channelName, const string& targetNickname) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
-	if (!canModifyChannel(client, channelName))
-		return;
 	nickname_iterator nit = nicknames.find(targetNickname);
-	if (nit == nicknames.end())
-		return;
+
 	Client* targetClient = nit->second;
 	channel->removeOperator(targetClient);
-	notifyChannelChange(client, channelName, targetNickname + " has been stripped of operator status in " + channelName);
 }
 
 void Server::setUserLimit(Client& client, const string& channelName, size_t userLimit) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
-	if (!canModifyChannel(client, channelName))
-		return;
+
 	channel->setUserLimit(userLimit);
-	notifyChannelChange(client, channelName, "User limit for " + channelName + " has been set to: " + std::to_string(userLimit));
 }
 
 void Server::removeUserLimit(Client& client, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
-	if (it == channels.end())
-		return;
 	Channel* channel = it->second;
-	if (!canModifyChannel(client, channelName))
-		return;
+
 	channel->removeUserLimit();
-	notifyChannelChange(client, channelName, "User limit for " + channelName + " has been removed");
 }

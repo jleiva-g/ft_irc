@@ -1,2 +1,4 @@
 ircserv
-*.o
+obj/
+.vscode/
+docs/

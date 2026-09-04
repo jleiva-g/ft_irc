@@ -148,7 +148,6 @@ void Server::proccessIn(int fd) {
 		// Queue the initial welcome response; it will be sent on POLLOUT.
 		clients[acceptRes] = new Client();
 		clients[acceptRes]->setFd(acceptRes);
-		sendReplyToClient("", 001, "Welcome to the Internet Relay Network");
 
 		pollFds.push_back(newUserfd);
 		std::cout << "Accepted new client on fd " << acceptRes << std::endl;
@@ -177,6 +176,8 @@ void Server::proccessIn(int fd) {
 
 		while(client->getOneCommandFromBuffer(response)) {
 			std::cout << "Received command from client on fd " << fd << ": " << response << std::endl;
+
+			//TODO: Process the command and generate a response to queue for the client.
 		}
 	}
 }
@@ -331,271 +332,328 @@ void Server::start() {
  */
 bool Server::checkPassword(const string& pass) const { return pass == password; }
 
-/**
- * @brief Changes a client's nickname.
- * @details Updates the client's nickname and the `nicknames` map. If the new
- *  nickname is already in use, sends an error reply to the client.
- * 
- * @param[in] nickname New nickname to assign to the client.
- * @param[in] client Pointer to the `Client` object whose nickname is being changed.
- * @throw std::runtime_error If the client pointer is null.
- */
-void Server::changeNickname(const string& nickname, Client* client) {
-	if (!client)
-		throw std::runtime_error("Client pointer is null");
+void Server::setPassAccepted(Client& client) { client.setPassAccepted(true); }
 
-	if (nicknames.find(nickname) != nicknames.end()) {
-		sendReplyToClient(client->getNickname(), 433, nickname + " :Nickname is already in use");
-		return;
+void Server::setNickname(Client& client, const string& nickname) {
+	if (!client.getNickname().empty()) {
+		stringstream ss;
+		ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host NICK :" << nickname;
+		
+		nicknames.erase(client.getNickname());
+		queueMessage(findPollfd(client.getFd()), ss.str());
+		// TODO: Notify other clients in the same channels about the nickname change.
 	}
-
-	nicknames[nickname] = client;
-	if (!client->getNickname().empty())
-		nicknames.erase(client->getNickname());
-	client->setNickname(nickname);
+	client.setNickname(nickname);
+	nicknames[nickname] = &client;
 }
 
-/**
- * @brief Sends a reply message to a client.
- * @details Constructs a reply message with the specified code and text, and
- *  queues it for sending to the client identified by the nickname. If the
- *  nickname is not registered, the function does nothing.
- * 
- * @param[in] nickname Nickname of the client to send the reply to.
- * @param[in] code Numeric reply code to include in the message.
- * @param[in] msg Text of the reply message.
- * @throw std::runtime_error If the client is not found in the `nicknames` map.
- */
-void Server::sendReplyToClient(const string& nickname, int code, const string& msg) {
-	nickname_iterator it = nicknames.find(nickname);
-	if (it == nicknames.end())
-		throw std::runtime_error("Client not found");
+void Server::setRegistered(Client& client) {
+	client.setRegistered(true);
+	stringstream ss;
+
+	ss << ":Welcome to the Internet Relay Network " << client.getUsername() << "@host";
+	sendCodeToClient(client, 001, ss.str());
+
+	ss.str("");
+	ss << ":Your host is ft_irc.server, running version 1.0";
+	sendCodeToClient(client, 002, ss.str());
+
+	ss.str("");
+	ss << ":This server was created on " << __DATE__;
+	sendCodeToClient(client, 003, ss.str());
+
+	ss.str("");
+	ss << ":Server info: ft_irc.server 1.0";
+	sendCodeToClient(client, 004, ss.str());
+
+	ss.str("");
+	ss << ":There is no message of the day";
+	sendCodeToClient(client, 422, ss.str());
+}
+
+bool Server::isNicknameInUse(const string& nickname) const { return nicknames.find(nickname) != nicknames.end(); }
+
+void Server::leaveAllChannels(Client& client) {
+	for (channel_iterator it = channels.begin(); it != channels.end(); it++)
+		partChannel(client, it->first, "Client disconnected");
+}
+
+void Server::joinChannel(Client& client, const string& channelName, const string& key) {
+	//TODO: Manage channel keys and invite-only channels.
+	Channel* channel;
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end()) {
+		channel = new Channel(channelName);
+		channels[channelName] = channel;
+	}
+	else
+		channel = it->second;
 
 	stringstream ss;
-	ss << ":irc.miservidor.com " << code << " " << nickname << " " << msg;
-	queueMessage(findPollfd(it->second->getFd()), ss.str());
+	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host JOIN :" << channelName;
+	notifyChannelChange(client, channelName, ss.str());
+	queueMessage(findPollfd(client.getFd()), ss.str());
+	
+	channel->addMember(client);
 }
 
-/**
- * @brief Sends a private message to a client.
- * @details Constructs a private message with the specified sender, recipient, and content, and
- *  queues it for sending to the recipient. If the recipient is not registered, the function
- *  throws a runtime error.
- *
- * @param[in] sender Nickname of the client sending the message.
- * @param[in] recipient Nickname of the client to send the message to.
- * @param[in] msg Text of the private message.
- * @throw std::runtime_error If the recipient is not found in the `nicknames` map.
- */
-void Server::sendMessageToClient(const string& sender, const string& recipient, const string& msg) {
-	nickname_iterator it = nicknames.find(recipient);
-	if (it == nicknames.end())
-		throw std::runtime_error("Client not found");
-
-	stringstream ss;
-	ss << ":" << sender << " PRIVMSG " << recipient << " :" << msg;
-	queueMessage(findPollfd(it->second->getFd()), ss.str());
-}
-
-/**
- * @brief Sends a message to all members of a channel.
- * @details Constructs a message with the specified sender, channel name, and content, and
- *  queues it for sending to all members of the channel except the sender. If the channel
- *  does not exist, the function throws a runtime error.
- * 
- * @param[in] sender Nickname of the client sending the message.
- * @param[in] channelName Name of the channel to send the message to.
- * @param[in] msg Text of the message to send to the channel.
- * @throw std::runtime_error If the channel is not found in the `channels` map.
- */
-void Server::sendMessageToChannel(const string& sender, const string& channelName, const string& msg) {
+void Server::partChannel(Client& client, const string& channelName, const string& reason) {
 	channel_iterator it = channels.find(channelName);
 	if (it == channels.end())
-		throw std::runtime_error("Channel not found");
-
+		return;
 	Channel* channel = it->second;
-	const std::set<Client*>& members = channel->getMembers();
+	stringstream ss;
+	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host PART :" << channelName << " :" << reason;
+	notifyChannelChange(client, channelName, ss.str());
+	queueMessage(findPollfd(client.getFd()), ss.str());
+	channel->removeMember(client);
+	if (channel->getMembers().empty()) {
+		delete channel;
+		channels.erase(it);
+	}
+}
 
-	for (std::set<Client*>::const_iterator it = members.begin(); it != members.end(); ++it) {
-		Client* member = *it;
-		if (member->getNickname() != sender) {
+void Server::sendCodeToClient(Client& client, int code, const string& msg) {
+	stringstream ss;
+	ss << ":ft_irc.server" << code << " " << client.getNickname() << " " << msg;
+	queueMessage(findPollfd(client.getFd()), ss.str());
+}
+
+void Server::notifyChannelChange(Client& client, const string& channelName, const string& msg) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		return;
+	Channel* channel = it->second;
+	const set<Client*>& members = channel->getMembers();
+	for (set<Client*>::const_iterator mit = members.begin(); mit != members.end(); mit++) {
+		Client* member = *mit;
+		if (member != &client) {
+			queueMessage(findPollfd(member->getFd()), msg);
+		}
+	}
+}
+
+void Server::broadcastToChannel(const string& channelName, const string& msg, Client* excludeClient) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		return;
+	Channel* channel = it->second;
+	const set<Client*>& members = channel->getMembers();
+	for (set<Client*>::const_iterator mit = members.begin(); mit != members.end(); mit++) {
+		Client* member = *mit;
+		if (member != excludeClient)
+			queueMessage(findPollfd(member->getFd()), msg);
+	}
+}
+
+void Server::sendMsgToClient(Client& client, const string& target, const string& msg) {
+	nickname_iterator it = nicknames.find(target);
+	if (it == nicknames.end())
+		return;
+	Client* targetClient = it->second;
+
+	stringstream ss;
+	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host PRIVMSG " << target << " :" << msg;
+	queueMessage(findPollfd(targetClient->getFd()), ss.str());
+}
+
+void Server::sendMsgToChannel(Client& client, const string& channelName, const string& msg) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		return;
+	Channel* channel = it->second;
+	const set<Client*>& members = channel->getMembers();
+	for (set<Client*>::const_iterator mit = members.begin(); mit != members.end(); mit++) {
+		Client* member = *mit;
+		if (member != &client) {
 			stringstream ss;
-			ss << ":" << sender << " PRIVMSG " << channelName << " :" << msg;
+			ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host PRIVMSG " << channelName << " :" << msg;
 			queueMessage(findPollfd(member->getFd()), ss.str());
 		}
 	}
 }
 
-/**
- * @brief Sends a raw message to a client.
- * @details Queues the specified raw message for sending to the client. If the
- *  client pointer is null, the function throws a runtime error.
- * 
- * @param[in] client Pointer to the `Client` object to send the raw message to.
- * @param[in] rawLine Raw message to send to the client.
- * @throw std::runtime_error If the client pointer is null.
- */
-void Server::sendRaw(Client* client, const string& rawLine) {
-	if (!client)
-		throw std::runtime_error("Client pointer is null");
-
-	queueMessage(findPollfd(client->getFd()), rawLine);
-}
-
-
-/**
- * @brief Broadcasts a message to all members of a channel, excluding a specific client.
- * @details Constructs a message with the specified raw line and channel name, and
- *  queues it for sending to all members of the channel except the excluded client.
- * 
- * @param[in] rawLine Raw message to broadcast to the channel.
- * @param[in] channelName Name of the channel to broadcast the message to.
- * @param[in] exclude Pointer to the `Client` object to exclude from receiving the message. If null, no client is excluded.
- * @throw std::runtime_error If the channel is not found in the `channels` map.
- */
-void Server::broadcastToChannel(const string& rawLine, const string& channelName, Client* exclude) {
+void Server::kickClient(Client& client, const string& channelName, const string& targetNickname, const string& reason) {
 	channel_iterator it = channels.find(channelName);
 	if (it == channels.end())
-		throw std::runtime_error("Channel not found");
-
+		return;
 	Channel* channel = it->second;
-	const std::set<Client*>& members = channel->getMembers();
+	nickname_iterator nit = nicknames.find(targetNickname);
+	if (nit == nicknames.end())
+		return;
 
-	for (std::set<Client*>::const_iterator it = members.begin(); it != members.end(); ++it) {
-		Client* member = *it;
-		if (member != exclude) {
-			queueMessage(findPollfd(member->getFd()), rawLine);
-		}
-	}
+	Client* targetClient = nit->second;
+	stringstream ss;
+	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host KICK " << channelName << " " << targetNickname << " :" << reason;
+	notifyChannelChange(client, channelName, ss.str());
+
+	channel->removeMember(*targetClient);
+	queueMessage(findPollfd(targetClient->getFd()), "You have been kicked from " + channelName + ": " + reason);
 }
 
-/**
- * @brief Adds a new channel to the server.
- * @details Creates a new `Channel` object with the specified name and adds it
- *  to the `channels` map. If a channel with the same name already exists, the
- *  function throws a runtime error.
- * 
- * @param[in] channelName Name of the new channel to add.
- * @throw std::runtime_error If a channel with the same name already exists.
- */
-void Server::addChannel(const string& channelName) {
-	if (channels.find(channelName) != channels.end())
-		throw std::runtime_error("Channel already exists");
-
-	Channel* channel = new Channel(channelName);
-	channels[channelName] = channel;
+void Server::kickClient(Client& client, const string& channelName, const vector<string>& targetClients, const string& reason) {
+	for (size_t i = 0; i < targetClients.size(); i++)
+		kickClient(client, channelName, targetClients[i], reason);
 }
 
-/**
- * @brief Removes a channel from the server.
- * @details Deletes the `Channel` object and removes it from the `channels`
- *  map. If the channel does not exist, the function throws a runtime error.
- * 
- * @param[in] channelName Name of the channel to remove.
- * @throw std::runtime_error If the channel is not found in the `channels` map.
- */
-void Server::removeChannel(const string& channelName) {
+void Server::inviteClient(Client& client, const string& targetNickname, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
 	if (it == channels.end())
-		throw std::runtime_error("Channel not found");
+		return;
+	Channel* channel = it->second;
+	nickname_iterator nit = nicknames.find(targetNickname);
+	if (nit == nicknames.end())
+		return;
 
-	delete it->second;
-	channels.erase(channelName);
+	Client* targetClient = nit->second;
+	stringstream ss;
+	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host INVITE " << targetNickname << " :" << channelName;
+	queueMessage(findPollfd(targetClient->getFd()), ss.str());
+
+	ss.str("");
+	ss << client.getNickname() << " " << targetNickname << " " << channelName;
+	sendCodeToClient(client, 341, ss.str());
+
+	channel->addMember(*targetClient);
+	queueMessage(findPollfd(targetClient->getFd()), "You have been invited to " + channelName + " by " + client.getNickname());
 }
 
-/**
- * @brief Adds a client to a channel.
- * @details Adds the specified `Client` object to the member list of the
- *  `Channel` identified by the channel name. If the channel does not exist,
- *  the function throws a runtime error.
- *
- * @param[in] channelName Name of the channel to add the client to.
- * @param[in] client Pointer to the `Client` object to add to the channel.
- * @throw std::runtime_error If the channel is not found in the `channels` map.
- */
-void Server::addClientToChannel(const string& channelName, Client* client) {
+void Server::sendTopic(Client& client, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
 	if (it == channels.end())
-		throw std::runtime_error("Channel not found");
-
-	it->second->addMember(client);
+		return;
+	Channel* channel = it->second;
+	queueMessage(findPollfd(client.getFd()), "Current topic for " + channelName + ": " + channel->getTopic());
 }
 
-/**
- * @brief Removes a client from a channel.
- * @details Removes the specified `Client` object from the member list of the
- *  `Channel` identified by the channel name. If the channel does not exist,
- *  the function throws a runtime error.
- *
- * @param[in] channelName Name of the channel to remove the client from.
- * @param[in] client Pointer to the `Client` object to remove from the channel.
- * @throw std::runtime_error If the channel is not found in the `channels` map.
- */
-void Server::removeClientFromChannel(const string& channelName, Client* client) {
+void Server::setTopic(Client& client, const string& channelName, const string& topic) {
 	channel_iterator it = channels.find(channelName);
 	if (it == channels.end())
-		throw std::runtime_error("Channel not found");
-
-	it->second->removeMember(client);
+		return;
+	Channel* channel = it->second;
+	if (!canModifyChannel(client, channelName))
+		return;
+	channel->setTopic(topic);
+	notifyChannelChange(client, channelName, "Topic for " + channelName + " has been changed to: " + topic);
 }
 
-/**
- * @brief Adds an operator to a channel.
- * @details Adds the specified `Client` object to the operator list of the
- *  `Channel` identified by the channel name. If the channel does not exist,
- *  the function throws a runtime error.
- *
- * @param[in] channelName Name of the channel to add the operator to.
- * @param[in] client Pointer to the `Client` object to add as an operator.
- * @throw std::runtime_error If the channel is not found in the `channels` map.
- */
-void Server::addOperatorToChannel(const string& channelName, Client* client) {
+void Server::sendChannelModes(Client& client, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
 	if (it == channels.end())
-		throw std::runtime_error("Channel not found");
-
-	it->second->addOperator(client);
+		return;
+	Channel* channel = it->second;
+	string modes = "+";
+	if (channel->isInviteOnly())
+		modes += "i";
+	if (channel->isTopicOpOnly())
+		modes += "t";
+	if (channel->hasKey())
+		modes += "k";
+	if (channel->hasUserLimit())
+		modes += "l";
+	queueMessage(findPollfd(client.getFd()), "Current modes for " + channelName + ": " + modes);
 }
 
-/**
- * @brief Removes an operator from a channel.
- * @details Removes the specified `Client` object from the operator list of the
- *  `Channel` identified by the channel name. If the channel does not exist,
- *  the function throws a runtime error.
- *
- * @param[in] channelName Name of the channel to remove the operator from.
- * @param[in] client Pointer to the `Client` object to remove from the channel.
- * @throw std::runtime_error If the channel is not found in the `channels` map.
- */
-void Server::removeOperatorFromChannel(const string& channelName, Client* client) {
+bool Server::canModifyChannel(Client& client, const string& channelName) const {
 	channel_iterator it = channels.find(channelName);
 	if (it == channels.end())
-		throw std::runtime_error("Channel not found");
-
-	it->second->removeOperator(client);
+		return false;
+	Channel* channel = it->second;
+	return channel->isOperator(&client);
 }
 
-Client* Server::getClient(int fd) const {
-	client_iterator it = clients.find(fd);
-	if (it != clients.end())
-		return it->second;
-	return NULL;
-}
-
-Client* Server::getClientByNickname(const string& nickname) const {
-	nickname_iterator it = nicknames.find(nickname);
-	if (it != nicknames.end())
-		return it->second;
-	return NULL;
-}
-
-bool Server::isNicknameInUse(const string& nickname) const { return nicknames.find(nickname) != nicknames.end(); }
-
-Channel* Server::getChannel(const string& channelName) const {
+void Server::setInviteOnly(Client& client, const string& channelName, bool inviteOnly) {
 	channel_iterator it = channels.find(channelName);
-	if (it != channels.end())
-		return it->second;
-	return NULL;
+	if (it == channels.end())
+		return;
+	Channel* channel = it->second;
+	if (!canModifyChannel(client, channelName))
+		return;
+	channel->setInviteOnly(inviteOnly);
+	notifyChannelChange(client, channelName, "Invite-only mode for " + channelName + " has been " + (inviteOnly ? "enabled" : "disabled"));
 }
 
-bool Server::channelExists(const string& channelName) const { return channels.find(channelName) != channels.end(); }
+void Server::setTopicRestricted(Client& client, const string& channelName, bool topicOpOnly) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		return;
+	Channel* channel = it->second;
+	if (!canModifyChannel(client, channelName))
+		return;
+	channel->setTopicOpOnly(topicOpOnly);
+	notifyChannelChange(client, channelName, "Topic-restricted mode for " + channelName + " has been " + (topicOpOnly ? "enabled" : "disabled"));
+}
+
+void Server::setChannelKey(Client& client, const string& channelName, const string& key) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		return;
+	Channel* channel = it->second;
+	if (!canModifyChannel(client, channelName))
+		return;
+	channel->setKey(key);
+	notifyChannelChange(client, channelName, "Key for " + channelName + " has been set to: " + key);
+}
+
+void Server::removeChannelKey(Client& client, const string& channelName) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		return;
+	Channel* channel = it->second;
+	if (!canModifyChannel(client, channelName))
+		return;
+	channel->removeKey();
+	notifyChannelChange(client, channelName, "Key for " + channelName + " has been removed");
+}
+
+void Server::setChannelOperator(Client& client, const string& channelName, const string& targetNickname) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		return;
+	Channel* channel = it->second;
+	if (!canModifyChannel(client, channelName))
+		return;
+	nickname_iterator nit = nicknames.find(targetNickname);
+	if (nit == nicknames.end())
+		return;
+	Client* targetClient = nit->second;
+	channel->addOperator(targetClient);
+	notifyChannelChange(client, channelName, targetNickname + " has been granted operator status in " + channelName);
+}
+
+void Server::removeChannelOperator(Client& client, const string& channelName, const string& targetNickname) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		return;
+	Channel* channel = it->second;
+	if (!canModifyChannel(client, channelName))
+		return;
+	nickname_iterator nit = nicknames.find(targetNickname);
+	if (nit == nicknames.end())
+		return;
+	Client* targetClient = nit->second;
+	channel->removeOperator(targetClient);
+	notifyChannelChange(client, channelName, targetNickname + " has been stripped of operator status in " + channelName);
+}
+
+void Server::setUserLimit(Client& client, const string& channelName, size_t userLimit) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		return;
+	Channel* channel = it->second;
+	if (!canModifyChannel(client, channelName))
+		return;
+	channel->setUserLimit(userLimit);
+	notifyChannelChange(client, channelName, "User limit for " + channelName + " has been set to: " + std::to_string(userLimit));
+}
+
+void Server::removeUserLimit(Client& client, const string& channelName) {
+	channel_iterator it = channels.find(channelName);
+	if (it == channels.end())
+		return;
+	Channel* channel = it->second;
+	if (!canModifyChannel(client, channelName))
+		return;
+	channel->removeUserLimit();
+	notifyChannelChange(client, channelName, "User limit for " + channelName + " has been removed");
+}

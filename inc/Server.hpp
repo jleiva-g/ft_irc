@@ -64,6 +64,9 @@ class	Server {
 		void	start();
 		bool	checkPassword(const string& pass) const;
 
+		Client*	getClientByFd(int fd) const;
+		Client*	getClientByNickname(const string& nickname) const;
+
 		void	setPassAccepted(Client& client);
 		void	setNickname(Client& client, const string& nickname);
 		void	setRegistered(Client& client);

@@ -330,7 +330,10 @@ static void	handlePrivmsg(Client& client, Server& server, const vector<string>& 
 			server.sendCodeToClient(client, ERR_NOSUCHNICK, getNumericInfo(ERR_NOSUCHNICK).message);
 			continue;
 		}
-		// channel exists?	403 ERR_NOSUCHCHANNEL
+		if (!server.channelExists(target)) {
+			server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, getNumericInfo(ERR_NOSUCHCHANNEL).message);
+			continue;
+		}
 		if (target[0] == '#' || target[0] == '&'
 			|| target[0] == '+' || target[0] == '!')
 			server.sendMsgToChannel(client, target, args[1]);
@@ -389,6 +392,7 @@ static void	handleKick(Client& client, Server& server, const vector<string>& arg
 	string	comment;
 	if (args.size() >= 3)
 		comment = args[2];
+	
 	// channel exists?		403 ERR_NOSUCHCHANNEL
 	// kicker in channel?	442 ERR_NOTONCHANNEL
 	// kicker op?			482 ERR_CHANOPRIVSNEEDED
@@ -424,11 +428,26 @@ static void	handleInvite(Client& client, Server& server, const vector<string>& a
 	if (args.size() > 2)
 		return;
 
-	// channel exists?		403 ERR_NOSUCHCHANNEL
-	// target exists?		401 ERR_NOSUCHNICK
-	// inviter in channel?	442 ERR_NOTONCHANNEL
-	// inviter op if +i?	482 ERR_CHANOPRIVSNEEDED
-	// target in channel?	443 ERR_USERONCHANNEL
+	if (!server.channelExists(args[1])) {
+		server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, getNumericInfo(ERR_NOSUCHCHANNEL).message);
+		return;
+	}
+	if (!server.isNicknameInUse(args[0])) {
+		server.sendCodeToClient(client, ERR_NOSUCHNICK, getNumericInfo(ERR_NOSUCHNICK).message);
+		return;
+	}
+	if (!server.isClientInChannel(client, args[1])) {
+		server.sendCodeToClient(client, ERR_NOTONCHANNEL, getNumericInfo(ERR_NOTONCHANNEL).message);
+		return;
+	}
+	if (!server.isChannelOperator(args[1], client.getNickname())) {
+		server.sendCodeToClient(client, ERR_CHANOPRIVSNEEDED, getNumericInfo(ERR_CHANOPRIVSNEEDED).message);
+		return;
+	}
+	if (!server.isClientInChannel(*(server.getClientByNickname(args[0])), args[1])) {
+		server.sendCodeToClient(client, ERR_USERNOTINCHANNEL, getNumericInfo(ERR_USERNOTINCHANNEL).message);
+		return;
+	}
 	server.inviteClient(client, args[0], args[1]);
 }
 
@@ -453,16 +472,23 @@ static void	handleTopic(Client& client, Server& server, const vector<string>& ar
 	}
 	if (args.size() > 2)
 		return;
+	if (!server.channelExists(args[0])) {
+		server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, getNumericInfo(ERR_NOSUCHCHANNEL).message);
+		return;
+	}
+	if (!server.isClientInChannel(client, args[0])) {
+		server.sendCodeToClient(client, ERR_NOTONCHANNEL, getNumericInfo(ERR_NOTONCHANNEL).message);
+		return;
+	}
 
 	if (args.size() == 1) {
-		// channel exists?		403 ERR_NOSUCHCHANNEL
-		// client in channel?	442 ERR_NOTONCHANNEL
 		server.sendTopic(client, args[0]);
 		return;
 	}
-	// channel exists?		403 ERR_NOSUCHCHANNEL
-	// client in channel?	442 ERR_NOTONCHANNEL
-	// client op if +t?		482 ERR_CHANOPRIVSNEEDED
+	if (server.isChannelTopicRestricted(args[0]) && !server.isChannelOperator(args[0], client.getNickname())) {
+		server.sendCodeToClient(client, ERR_CHANOPRIVSNEEDED, getNumericInfo(ERR_CHANOPRIVSNEEDED).message);
+		return;
+	}
 	// broadcast topic
 	server.setTopic(client, args[0], args[1]);
 }
@@ -539,9 +565,18 @@ static void	handleMode(Client& client, Server& server, const vector<string>& arg
 			server.sendCodeToClient(client, ERR_UNKNOWNMODE, getNumericInfo(ERR_UNKNOWNMODE).message);
 			continue;
 		}
-		// channel exists?		403 ERR_NOSUCHCHANNEL
-		// client in channel?	442 ERR_NOTONCHANNEL
-		// client op?			482 ERR_CHANOPRIVSNEEDED
+		if (!server.channelExists(args[0])) {
+			server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, getNumericInfo(ERR_NOSUCHCHANNEL).message);
+			continue;
+		}
+		if (!server.isClientInChannel(client, args[0])) {
+			server.sendCodeToClient(client, ERR_NOTONCHANNEL, getNumericInfo(ERR_NOTONCHANNEL).message);
+			continue;
+		}
+		if (!server.isChannelOperator(args[0], client.getNickname())) {
+			server.sendCodeToClient(client, ERR_CHANOPRIVSNEEDED, getNumericInfo(ERR_CHANOPRIVSNEEDED).message);
+			continue;
+		}
 		//server.checkHandle(client, args[0]);
 		switch (args[1][i]) {
 			case 'i':

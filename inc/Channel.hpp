@@ -52,6 +52,7 @@
 			bool				hasModeTopicOpOnly() const;
 			bool				hasModeKey() const;
 			bool				hasModeUserLimit() const;
+			bool				isFull() const;
 
 			void				setName(const string& value);
 			void				setTopic(const string& value);

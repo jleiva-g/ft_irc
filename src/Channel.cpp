@@ -101,6 +101,11 @@ bool Channel::hasModeUserLimit() const
   return (modes & MODE_USER_LIMIT) != 0;
 }
 
+bool Channel::isFull() const
+{
+  return hasModeUserLimit() && members.size() >= userLimit;
+}
+
 /**
  * @brief Sets the channel name.
  * @param[in] value New channel name.

@@ -333,6 +333,20 @@ void Server::start() {
  */
 bool Server::checkPassword(const string& pass) const { return pass == password; }
 
+Client* Server::getClientByFd(int fd) const {
+	client_iterator it = clients.find(fd);
+	if (it != clients.end())
+		return it->second;
+	return NULL;
+}
+
+Client* Server::getClientByNickname(const string& nickname) const {
+	nickname_iterator it = nicknames.find(nickname);
+	if (it != nicknames.end())
+		return it->second;
+	return NULL;
+}
+
 void Server::setPassAccepted(Client& client) { client.setPassAccepted(true); }
 
 void Server::setNickname(Client& client, const string& nickname) {
@@ -381,7 +395,6 @@ void Server::leaveAllChannels(Client& client) {
 }
 
 void Server::joinChannel(Client& client, const string& channelName, const string& key) {
-	//TODO: Manage channel keys and invite-only channels.
 	Channel* channel;
 	channel_iterator it = channels.find(channelName);
 	if (it == channels.end()) {
@@ -391,12 +404,25 @@ void Server::joinChannel(Client& client, const string& channelName, const string
 	else
 		channel = it->second;
 
+	if (channel->hasModeInviteOnly() && !channel->isInvited(&client)) {
+		sendCodeToClient(client, 473, channelName + " :Cannot join channel (+i) - invite only");
+		return;
+	}
+	if (channel->hasModeKey() && channel->getKey() != key) {
+		sendCodeToClient(client, 475, channelName + " :Cannot join channel (+k) - incorrect key");
+		return;
+	}
+	if (channel->hasModeUserLimit() && channel->getMembers().size() >= channel->getUserLimit()) {
+		sendCodeToClient(client, 471, channelName + " :Cannot join channel (+l) - user limit reached");
+		return;
+	}
+
 	stringstream ss;
 	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host JOIN :" << channelName;
 	notifyChannelChange(client, channelName, ss.str());
 	queueMessage(findPollfd(client.getFd()), ss.str());
 	
-	//channel->addMember(client);
+	channel->addMember(&client);
 }
 
 void Server::partChannel(Client& client, const string& channelName, const string& reason) {
@@ -409,7 +435,7 @@ void Server::partChannel(Client& client, const string& channelName, const string
 		ss << " :" << reason;
 	notifyChannelChange(client, channelName, ss.str());
 	queueMessage(findPollfd(client.getFd()), ss.str());
-	//channel->removeMember(client);
+	channel->removeMember(&client);
 	if (channel->getMembers().empty()) {
 		delete channel;
 		channels.erase(it->first);
@@ -480,7 +506,7 @@ void Server::kickClient(Client& client, const string& channelName, const string&
 	stringstream ss;
 	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host KICK " << channelName << " " << targetNickname << " :" << (reason.empty() ? "No reason provided" : reason);
 	notifyChannelChange(client, channelName, ss.str());
-	//channel->removeMember(*targetClient);
+	channel->removeMember(targetClient);
 }
 
 void Server::kickClient(Client& client, const string& channelName, const vector<string>& targetClients, const string& reason) {
@@ -502,7 +528,7 @@ void Server::inviteClient(Client& client, const string& targetNickname, const st
 	ss << targetNickname << " " << channelName;
 	sendCodeToClient(client, 341, ss.str());
 
-	//channel->inviteClient(*targetClient);
+	channel->addInvited(targetClient);
 }
 
 void Server::sendTopic(Client& client, const string& channelName) {
@@ -521,7 +547,7 @@ void Server::sendTopic(Client& client, const string& channelName) {
 void Server::setTopic(Client& client, const string& channelName, const string& topic) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
-	//channel->setTopic(topic);
+	channel->setTopic(topic);
 
 	stringstream ss;
 	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host TOPIC " << channelName << " :" << topic;
@@ -533,20 +559,20 @@ void Server::sendChannelModes(Client& client, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
 	string modes = "+";
-	if (channel->isInviteOnly())
+	if (channel->hasModeInviteOnly())
 		modes += "i";
-	if (channel->isTopicOpOnly())
+	if (channel->hasModeTopicOpOnly())
 		modes += "t";
-	if (channel->hasKey())
+	if (channel->hasModeKey())
 		modes += "k";
-	if (channel->hasUserLimit())
+	if (channel->hasModeUserLimit())
 		modes += "l";
 	
 	stringstream ss;
 	ss << channelName << " " << modes;
-	if (channel->hasKey())
+	if (channel->hasModeKey())
 		ss << " " << channel->getKey();
-	if (channel->hasUserLimit())
+	if (channel->hasModeUserLimit())
 		ss << " " << channel->getUserLimit();
 	sendCodeToClient(client, 324, ss.str());
 }
@@ -557,20 +583,20 @@ void Server::sendChannelModesToAll(Client& client, const string& channelName) {
 
 	Channel* channel = it->second;
 	string modes = "+";
-	if (channel->isInviteOnly())
+	if (channel->hasModeInviteOnly())
 		modes += "i";
-	if (channel->isTopicOpOnly())
+	if (channel->hasModeTopicOpOnly())
 		modes += "t";
-	if (channel->hasKey())
+	if (channel->hasModeKey())
 		modes += "k";
-	if (channel->hasUserLimit())
+	if (channel->hasModeUserLimit())
 		modes += "l";
 
 	stringstream ss;
 	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host MODE " << channelName << " " << modes;
-	if (channel->hasKey())
+	if (channel->hasModeKey())
 		ss << " " << channel->getKey();
-	if (channel->hasUserLimit())
+	if (channel->hasModeUserLimit())
 		ss << " " << channel->getUserLimit();
 
 	notifyChannelChange(client, channelName, ss.str());
@@ -586,25 +612,26 @@ bool Server::canModifyChannel(Client& client, const string& channelName) const {
 void Server::setInviteOnly(Client& client, const string& channelName, bool inviteOnly) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
-	//channel->setInviteOnly(inviteOnly);
+	channel->setInviteOnly(inviteOnly);
 }
 
 void Server::setTopicRestricted(Client& client, const string& channelName, bool topicOpOnly) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
-	//channel->setTopicOpOnly(topicOpOnly);
+	channel->setTopicOpOnly(topicOpOnly);
 }
 
 void Server::setChannelKey(Client& client, const string& channelName, const string& key) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
-	//channel->setKey(key);
+	channel->setKey(key);
+	channel->setHasKey(true);
 }
 
 void Server::removeChannelKey(Client& client, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
-	//channel->removeKey();
+	channel->setHasKey(false);
 }
 
 void Server::setChannelOperator(Client& client, const string& channelName, const string& targetNickname) {
@@ -613,7 +640,7 @@ void Server::setChannelOperator(Client& client, const string& channelName, const
 	nickname_iterator nit = nicknames.find(targetNickname);
 
 	Client* targetClient = nit->second;
-	//channel->addOperator(targetClient);
+	channel->addOperator(targetClient);
 }
 
 void Server::removeChannelOperator(Client& client, const string& channelName, const string& targetNickname) {
@@ -629,14 +656,14 @@ void Server::setUserLimit(Client& client, const string& channelName, size_t user
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
 
-	//channel->setUserLimit(userLimit);
+	channel->setUserLimit(userLimit);
 }
 
 void Server::removeUserLimit(Client& client, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
 
-	//channel->removeUserLimit();
+	channel->setUserLimit(-1);
 }
 
 bool Server::isClientInChannel(Client& client, const string& channelName) const {
@@ -650,7 +677,7 @@ bool Server::isClientInvitedToChannel(Client& client, const string& channelName)
 	channel_iterator it = channels.find(channelName);
 
 	Channel* channel = it->second;
-	//return channel->isInvited(&client);
+	return channel->isInvited(&client);
 	return false; // Placeholder until invite tracking is implemented
 }
 
@@ -658,30 +685,28 @@ bool Server::isChannelInviteOnly(const string& channelName) const {
 	channel_iterator it = channels.find(channelName);
 
 	Channel* channel = it->second;
-	return channel->isInviteOnly();
+	return channel->hasModeInviteOnly();
 }
 
 bool Server::isChannelTopicRestricted(const string& channelName) const {
 	channel_iterator it = channels.find(channelName);
 
 	Channel* channel = it->second;
-	return channel->isTopicOpOnly();
+	return channel->hasModeTopicOpOnly();
 }
 
 bool Server::isChannelKeyProtected(const string& channelName) const {
 	channel_iterator it = channels.find(channelName);
 
 	Channel* channel = it->second;
-	//return channel->isKeyProtected();
-	return false; // Placeholder until key protection is implemented
+	return channel->hasModeKey();
 }
 
 bool Server::isChannelFull(const string& channelName) const {
 	channel_iterator it = channels.find(channelName);
 
 	Channel* channel = it->second;
-	//return channel->isFull();
-	return false; // Placeholder until user limit tracking is implemented
+	return channel->isFull();
 }
 
 bool Server::isChannelOperator(const string& channelName, const string& nickname) const {
@@ -707,10 +732,7 @@ bool Server::isChannelPass(const string& channelName, const string& pass) const 
 		return false;
 	}
 	Channel* channel = it->second;
-	//return channel->isKeyProtected() && channel->getKey() == pass;
-	return false; // Placeholder until key protection is implemented
+	return channel->hasModeKey() && channel->getKey() == pass;
 }
 
-bool Server::passMatch(const string& pass) const {
-	return pass == password;
-}
+bool Server::passMatch(const string& pass) const { return pass == password; }

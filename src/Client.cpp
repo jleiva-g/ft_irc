@@ -22,11 +22,17 @@ string& Client::getSendBuffer() { return sendBuffer; }
 void Client::appendRecvData(const string& data) { recvBuffer.append(data); }
 
 bool Client::getOneCommandFromBuffer(string& comm) {
-	size_t pos = recvBuffer.find("\r\n");
+	size_t pos = recvBuffer.find("\n");
 	if (pos == string::npos)
 		return false;
+
+	size_t delimiterLength = 1;
+	if (pos > 0 && recvBuffer[pos - 1] == '\r') {
+		--pos;
+		delimiterLength = 2;
+	}
 	comm = recvBuffer.substr(0, pos);
-	recvBuffer.erase(0, pos + 2);
+	recvBuffer.erase(0, pos + delimiterLength);
 	return true;
 }
 

@@ -336,6 +336,10 @@ static void	handlePrivmsg(Client& client, Server& server, const vector<string>& 
 				server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, target + " " + getNumericInfo(ERR_NOSUCHCHANNEL).message);
 				continue;
 			}
+			if (!server.isClientInChannel(client, target)) {
+				server.sendCodeToClient(client, ERR_CANNOTSENDTOCHAN, target + " " + getNumericInfo(ERR_CANNOTSENDTOCHAN).message);
+				continue;
+			}
 			server.sendMsgToChannel(client, target, args[1]);
 		}
 		else {

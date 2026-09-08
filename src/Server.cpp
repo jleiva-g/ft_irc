@@ -193,12 +193,12 @@ void Server::proccessIn(int fd) {
 		string response(buff, static_cast<size_t>(bytes));
 		client->appendRecvData(response);
 
-		std::cout << "Received " << bytes << " bytes from client on fd " << fd << std::endl;
-		std::cout << "Data: " << escapeForLog(response) << std::endl;
+		//std::cout << "Received " << bytes << " bytes from client on fd " << fd << std::endl;
+		//std::cout << "Data: " << escapeForLog(response) << std::endl;
 
 		while(client->getOneCommandFromBuffer(response)) {
 			std::cout << "Received command from client on fd " << fd << ": " << escapeForLog(response) << std::endl;
-			//Command::handleCommand(*client, *this, response);
+			Command::handleCommand(*client, *this, response);
 		}
 	}
 }

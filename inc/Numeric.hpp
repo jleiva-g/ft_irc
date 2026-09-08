@@ -73,7 +73,7 @@ static const NumericInfo NUMERIC_MESSAGES[] = {
 	{ERR_CHANOPRIVSNEEDED,		":You're not channel operator"}
 };
 
-NumericInfo getNumericInfo(Numeric code) {
+inline NumericInfo getNumericInfo(Numeric code) {
 	for (size_t i = 0; i < sizeof(NUMERIC_MESSAGES) / sizeof(NUMERIC_MESSAGES[0]); ++i) {
 		if (NUMERIC_MESSAGES[i].code == code)
 			return NUMERIC_MESSAGES[i];

@@ -583,7 +583,7 @@ static void	handleMode(Client& client, Server& server, const vector<string>& arg
 			continue;
 		}
 		if (!isValidMode(args[1][i])) {
-			server.sendCodeToClient(client, ERR_UNKNOWNMODE, args[1][i] + " " + getNumericInfo(ERR_UNKNOWNMODE).message);
+			server.sendCodeToClient(client, ERR_UNKNOWNMODE, string(args[1], i, 1) + " " + getNumericInfo(ERR_UNKNOWNMODE).message);
 			continue;
 		}
 		if (!server.isClientInChannel(client, args[0])) {

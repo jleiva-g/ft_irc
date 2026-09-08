@@ -110,7 +110,7 @@ static void	handlePass(Client& client, Server& server, const vector<string>& arg
 	if (args.size() > 1)
 		return;
 	if (args.empty()) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, "PASS :" + getNumericInfo(ERR_NEEDMOREPARAMS).message);
 		return;
 	}
 	if (client.isRegistered()) {
@@ -183,11 +183,11 @@ static void	handleNick(Client& client, Server& server, const vector<string>& arg
 	if (args.size() > 1)
 		return;
 	if (!isValidNickname(args[0])) {
-		server.sendCodeToClient(client, ERR_ERRONEUSNICKNAME, getNumericInfo(ERR_ERRONEUSNICKNAME).message);
+		server.sendCodeToClient(client, ERR_ERRONEUSNICKNAME, args[0] + " " + getNumericInfo(ERR_ERRONEUSNICKNAME).message);
 		return;
 	}
 	if (server.isNicknameInUse(args[0])) {
-		server.sendCodeToClient(client, ERR_NICKNAMEINUSE, getNumericInfo(ERR_NICKNAMEINUSE).message);
+		server.sendCodeToClient(client, ERR_NICKNAMEINUSE,  args[0] + " " + getNumericInfo(ERR_NICKNAMEINUSE).message);
 		return;
 	}
 	server.setNickname(client, args[0]);
@@ -205,7 +205,7 @@ static void	handleNick(Client& client, Server& server, const vector<string>& arg
  */
 static void	handleUser(Client& client, Server& server, const vector<string>& args) {
 	if (args.size() < 4) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, "USER :" + getNumericInfo(ERR_NEEDMOREPARAMS).message);
 		return;
 	}
 	if (args.size() > 4)
@@ -251,7 +251,7 @@ static void	handleJoin(Client& client, Server& server, const vector<string>& arg
 		return;
 	}
 	if (args.empty()) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, "JOIN :" + getNumericInfo(ERR_NEEDMOREPARAMS).message);
 		return;
 	}
 	if (args.size() > 2)
@@ -273,22 +273,25 @@ static void	handleJoin(Client& client, Server& server, const vector<string>& arg
 		if (args.size() > 1)
 			getline(keys, key, ',');
 		if (!isValidChannelName(name)) {
-			server.sendCodeToClient(client, ERR_BADCHANMASK, getNumericInfo(ERR_BADCHANMASK).message);
+			server.sendCodeToClient(client, ERR_BADCHANMASK, name + " " + getNumericInfo(ERR_BADCHANMASK).message);
 			continue;
 		}
-		if (server.isChannelFull(name)) {
-			server.sendCodeToClient(client, ERR_CHANNELISFULL, getNumericInfo(ERR_CHANNELISFULL).message);
+		if (server.channelExists(name) && server.isChannelFull(name)) {
+			server.sendCodeToClient(client, ERR_CHANNELISFULL, name + " " + getNumericInfo(ERR_CHANNELISFULL).message);
 			continue;
 		}
-		if (server.isChannelInviteOnly(name) && !server.isClientInvitedToChannel(client, name)) {
-			server.sendCodeToClient(client, ERR_INVITEONLYCHAN, getNumericInfo(ERR_INVITEONLYCHAN).message);
+		if (server.channelExists(name) && server.isChannelInviteOnly(name) && !server.isClientInvitedToChannel(client, name)) {
+			server.sendCodeToClient(client, ERR_INVITEONLYCHAN, name + " " + getNumericInfo(ERR_INVITEONLYCHAN).message);
 			continue;
 		}
-		if (server.isChannelKeyProtected(name) && !server.isChannelPass(name, key)) {
-			server.sendCodeToClient(client, ERR_BADCHANNELKEY, getNumericInfo(ERR_BADCHANNELKEY).message);
+		if (server.channelExists(name) && server.isChannelKeyProtected(name) && !server.isChannelPass(name, key)) {
+			server.sendCodeToClient(client, ERR_BADCHANNELKEY, name + " " + getNumericInfo(ERR_BADCHANNELKEY).message);
 			continue;
 		}
-		// channel limit?	405 ERR_TOOMANYCHANNELS
+		if (server.clientHasEnoughChannels(client)) {
+			server.sendCodeToClient(client, ERR_TOOMANYCHANNELS, name + " " + getNumericInfo(ERR_TOOMANYCHANNELS).message);
+			continue;
+		}
 		server.joinChannel(client, name, key);
 	}
 }
@@ -309,7 +312,7 @@ static void	handlePrivmsg(Client& client, Server& server, const vector<string>& 
 		return;
 	}
 	if (args.empty() || args[0].empty()) {
-		server.sendCodeToClient(client, ERR_NORECIPIENT, getNumericInfo(ERR_NORECIPIENT).message);
+		server.sendCodeToClient(client, ERR_NORECIPIENT, getNumericInfo(ERR_NORECIPIENT).message + " (PRIVMSG)");
 		return;
 	}
 	if (args.size() > 2)
@@ -326,22 +329,25 @@ static void	handlePrivmsg(Client& client, Server& server, const vector<string>& 
 		if (target.empty())
 			continue;
 		hasTarget = true;
-		if (!server.isNicknameInUse(target)) {
-			server.sendCodeToClient(client, ERR_NOSUCHNICK, getNumericInfo(ERR_NOSUCHNICK).message);
-			continue;
-		}
-		if (!server.channelExists(target)) {
-			server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, getNumericInfo(ERR_NOSUCHCHANNEL).message);
-			continue;
-		}
+		
 		if (target[0] == '#' || target[0] == '&'
-			|| target[0] == '+' || target[0] == '!')
+			|| target[0] == '+' || target[0] == '!') {
+			if (!server.channelExists(target)) {
+				server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, target + " " + getNumericInfo(ERR_NOSUCHCHANNEL).message);
+				continue;
+			}
 			server.sendMsgToChannel(client, target, args[1]);
-		else
+		}
+		else {
+			if (!server.isNicknameInUse(target)) {
+				server.sendCodeToClient(client, ERR_NOSUCHNICK, target + " " + getNumericInfo(ERR_NOSUCHNICK).message);
+				continue;
+			}
 			server.sendMsgToClient(client, target, args[1]);
+		}
 	}
 	if (!hasTarget) {
-		server.sendCodeToClient(client, ERR_NORECIPIENT, getNumericInfo(ERR_NORECIPIENT).message);
+		server.sendCodeToClient(client, ERR_NORECIPIENT, getNumericInfo(ERR_NORECIPIENT).message + " (PRIVMSG)");
 		return;
 	}
 }
@@ -365,7 +371,7 @@ static void	handleKick(Client& client, Server& server, const vector<string>& arg
 		return;
 	}
 	if (args.size() < 2) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, "KICK :" + getNumericInfo(ERR_NEEDMOREPARAMS).message);
 		return;
 	}
 	if (args.size() > 3)
@@ -392,18 +398,30 @@ static void	handleKick(Client& client, Server& server, const vector<string>& arg
 	string	comment;
 	if (args.size() >= 3)
 		comment = args[2];
-	
-	// channel exists?		403 ERR_NOSUCHCHANNEL
-	// kicker in channel?	442 ERR_NOTONCHANNEL
-	// kicker op?			482 ERR_CHANOPRIVSNEEDED
-	// target exists?		401 ERR_NOSUCHNICK
-	// target in channel?	441 ERR_USERNOTINCHANNEL
-	if (channelNames.size() == 1) {
-		server.kickClient(client, channelNames[0], nicknames, comment);
-		return;
-	}
-	for (size_t i = 0; i < channelNames.size(); ++i)
+
+	for (size_t i = 0; i < channelNames.size(); ++i) {
+		if (!server.channelExists(channelNames[i])) {
+			server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, channelNames[i] + " " + getNumericInfo(ERR_NOSUCHCHANNEL).message);
+			continue;
+		}
+		if (!server.isClientInChannel(client, channelNames[i])) {
+			server.sendCodeToClient(client, ERR_NOTONCHANNEL, channelNames[i] + " " + getNumericInfo(ERR_NOTONCHANNEL).message);
+			continue;
+		}
+		if (!server.isChannelOperator(channelNames[i], client.getNickname())) {
+			server.sendCodeToClient(client, ERR_CHANOPRIVSNEEDED, channelNames[i] + " " + getNumericInfo(ERR_CHANOPRIVSNEEDED).message);
+			continue;
+		}
+		if (!server.isNicknameInUse(nicknames[i])) {
+			server.sendCodeToClient(client, ERR_NOSUCHNICK, nicknames[i] + " " + getNumericInfo(ERR_NOSUCHNICK).message);
+			continue;
+		}
+		if (!server.isClientInChannel(*(server.getClientByNickname(nicknames[i])), channelNames[i])) {
+			server.sendCodeToClient(client, ERR_USERNOTINCHANNEL, nicknames[i] + " " + channelNames[i] + " " + getNumericInfo(ERR_USERNOTINCHANNEL).message);
+			continue;
+		}
 		server.kickClient(client, channelNames[i], nicknames[i], comment);
+	}
 }
 
 /**
@@ -422,30 +440,30 @@ static void	handleInvite(Client& client, Server& server, const vector<string>& a
 		return;
 	}
 	if (args.size() < 2) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, "INVITE :" + getNumericInfo(ERR_NEEDMOREPARAMS).message);
 		return;
 	}
 	if (args.size() > 2)
 		return;
 
 	if (!server.channelExists(args[1])) {
-		server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, getNumericInfo(ERR_NOSUCHCHANNEL).message);
+		server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, args[1] + " " + getNumericInfo(ERR_NOSUCHCHANNEL).message);
 		return;
 	}
 	if (!server.isNicknameInUse(args[0])) {
-		server.sendCodeToClient(client, ERR_NOSUCHNICK, getNumericInfo(ERR_NOSUCHNICK).message);
+		server.sendCodeToClient(client, ERR_NOSUCHNICK, args[0] + " " + getNumericInfo(ERR_NOSUCHNICK).message);
 		return;
 	}
 	if (!server.isClientInChannel(client, args[1])) {
-		server.sendCodeToClient(client, ERR_NOTONCHANNEL, getNumericInfo(ERR_NOTONCHANNEL).message);
+		server.sendCodeToClient(client, ERR_NOTONCHANNEL, args[1] + " " + getNumericInfo(ERR_NOTONCHANNEL).message);
 		return;
 	}
 	if (!server.isChannelOperator(args[1], client.getNickname())) {
-		server.sendCodeToClient(client, ERR_CHANOPRIVSNEEDED, getNumericInfo(ERR_CHANOPRIVSNEEDED).message);
+		server.sendCodeToClient(client, ERR_CHANOPRIVSNEEDED, args[1] + " " + getNumericInfo(ERR_CHANOPRIVSNEEDED).message);
 		return;
 	}
-	if (!server.isClientInChannel(*(server.getClientByNickname(args[0])), args[1])) {
-		server.sendCodeToClient(client, ERR_USERNOTINCHANNEL, getNumericInfo(ERR_USERNOTINCHANNEL).message);
+	if (server.isClientInChannel(*(server.getClientByNickname(args[0])), args[1])) {
+		server.sendCodeToClient(client, ERR_USERONCHANNEL, args[0] + " " + args[1] + " " + getNumericInfo(ERR_USERONCHANNEL).message);
 		return;
 	}
 	server.inviteClient(client, args[0], args[1]);
@@ -467,17 +485,17 @@ static void	handleTopic(Client& client, Server& server, const vector<string>& ar
 		return;
 	}
 	if (args.empty()) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, "TOPIC :" + getNumericInfo(ERR_NEEDMOREPARAMS).message);
 		return;
 	}
 	if (args.size() > 2)
 		return;
 	if (!server.channelExists(args[0])) {
-		server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, getNumericInfo(ERR_NOSUCHCHANNEL).message);
+		server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, args[0] + " " + getNumericInfo(ERR_NOSUCHCHANNEL).message);
 		return;
 	}
 	if (!server.isClientInChannel(client, args[0])) {
-		server.sendCodeToClient(client, ERR_NOTONCHANNEL, getNumericInfo(ERR_NOTONCHANNEL).message);
+		server.sendCodeToClient(client, ERR_NOTONCHANNEL, args[0] + " " + getNumericInfo(ERR_NOTONCHANNEL).message);
 		return;
 	}
 
@@ -486,10 +504,9 @@ static void	handleTopic(Client& client, Server& server, const vector<string>& ar
 		return;
 	}
 	if (server.isChannelTopicRestricted(args[0]) && !server.isChannelOperator(args[0], client.getNickname())) {
-		server.sendCodeToClient(client, ERR_CHANOPRIVSNEEDED, getNumericInfo(ERR_CHANOPRIVSNEEDED).message);
+		server.sendCodeToClient(client, ERR_CHANOPRIVSNEEDED, args[0] + " " + getNumericInfo(ERR_CHANOPRIVSNEEDED).message);
 		return;
 	}
-	// broadcast topic
 	server.setTopic(client, args[0], args[1]);
 }
 
@@ -542,7 +559,11 @@ static void	handleMode(Client& client, Server& server, const vector<string>& arg
 		return;
 	}
 	if (args.empty() || (args.size() > 1 && args[1].empty())) {
-		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
+		server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, "MODE :" + getNumericInfo(ERR_NEEDMOREPARAMS).message);
+		return;
+	}
+	if (!server.channelExists(args[0])) {
+		server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, args[0] + " " + getNumericInfo(ERR_NOSUCHCHANNEL).message);
 		return;
 	}
 	if (args.size() == 1) {
@@ -562,59 +583,55 @@ static void	handleMode(Client& client, Server& server, const vector<string>& arg
 			continue;
 		}
 		if (!isValidMode(args[1][i])) {
-			server.sendCodeToClient(client, ERR_UNKNOWNMODE, getNumericInfo(ERR_UNKNOWNMODE).message);
-			continue;
-		}
-		if (!server.channelExists(args[0])) {
-			server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, getNumericInfo(ERR_NOSUCHCHANNEL).message);
+			server.sendCodeToClient(client, ERR_UNKNOWNMODE, args[1][i] + " " + getNumericInfo(ERR_UNKNOWNMODE).message);
 			continue;
 		}
 		if (!server.isClientInChannel(client, args[0])) {
-			server.sendCodeToClient(client, ERR_NOTONCHANNEL, getNumericInfo(ERR_NOTONCHANNEL).message);
+			server.sendCodeToClient(client, ERR_NOTONCHANNEL, args[0] + " " + getNumericInfo(ERR_NOTONCHANNEL).message);
 			continue;
 		}
 		if (!server.isChannelOperator(args[0], client.getNickname())) {
-			server.sendCodeToClient(client, ERR_CHANOPRIVSNEEDED, getNumericInfo(ERR_CHANOPRIVSNEEDED).message);
+			server.sendCodeToClient(client, ERR_CHANOPRIVSNEEDED, args[0] + " " + getNumericInfo(ERR_CHANOPRIVSNEEDED).message);
 			continue;
 		}
 		//server.checkHandle(client, args[0]);
 		switch (args[1][i]) {
 			case 'i':
-				server.setInviteOnly(client, args[0], set);
+				server.setInviteOnly(args[0], set);
 				break;
 			case 't':
-				server.setTopicRestricted(client, args[0], set);
+				server.setTopicRestricted(args[0], set);
 				break;
 			case 'k':
 				if (set) {
 					if (argsIndex >= args.size()) {
-						server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
+						server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, "MODE :" + getNumericInfo(ERR_NEEDMOREPARAMS).message);
 						continue;
 					}
 					if (args[argsIndex].empty()) {
 						++argsIndex;
-						server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
+						server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, "MODE :" + getNumericInfo(ERR_NEEDMOREPARAMS).message);
 						continue;
 					}
-					server.setChannelKey(client, args[0], args[argsIndex++]);
+					server.setChannelKey(args[0], args[argsIndex++]);
 				} else {
-					server.removeChannelKey(client, args[0]);
+					server.removeChannelKey(args[0]);
 				}
 				break;
 			case 'o':
 				if (argsIndex >= args.size()) {
-					server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
+					server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, "MODE :" + getNumericInfo(ERR_NEEDMOREPARAMS).message);
 					continue;
 				}
 				if (set)
-					server.setChannelOperator(client, args[0], args[argsIndex++]);
+					server.setChannelOperator(args[0], args[argsIndex++]);
 				else
-					server.removeChannelOperator(client, args[0], args[argsIndex++]);
+					server.removeChannelOperator(args[0], args[argsIndex++]);
 				break;
 			case 'l':
 				if (set) {
 					if (argsIndex >= args.size()) {
-						server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, getNumericInfo(ERR_NEEDMOREPARAMS).message);
+						server.sendCodeToClient(client, ERR_NEEDMOREPARAMS, "MODE :" + getNumericInfo(ERR_NEEDMOREPARAMS).message);
 						continue;
 					}
 					if (!isValidLimit(args[argsIndex])) {
@@ -622,13 +639,14 @@ static void	handleMode(Client& client, Server& server, const vector<string>& arg
 						continue;
 					}
 					size_t	limit = static_cast<size_t>(strtoul(args[argsIndex++].c_str(), NULL, 10));
-					server.setUserLimit(client, args[0], limit);
+					server.setUserLimit(args[0], limit);
 				} else {
-					server.removeUserLimit(client, args[0]);
+					server.removeUserLimit(args[0]);
 				}
 				break;
 		}
 	}
+	server.sendChannelModesToAll(client, args[0]);
 }
 
 /**
@@ -664,5 +682,5 @@ void	Command::handleCommand(Client& client, Server& server, const string& raw) {
 	else if (name == "MODE")
 		handleMode(client, server, args);
 	else
-		server.sendCodeToClient(client, ERR_UNKNOWNCOMMAND, getNumericInfo(ERR_UNKNOWNCOMMAND).message);
+		server.sendCodeToClient(client, ERR_UNKNOWNCOMMAND, name + " " + getNumericInfo(ERR_UNKNOWNCOMMAND).message);
 }

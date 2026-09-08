@@ -23,7 +23,7 @@
 			set<Client*>	operators;
 			set<Client*>	invited;
 			unsigned int	modes;
-			long			userLimit;
+			size_t			userLimit;
 
 		public:
 			Channel();

@@ -1,6 +1,6 @@
 #include "Client.hpp"
 
-Client::Client() : fd(-1), nickname(""), username(""), passAccepted(false), registered(false), recvBuffer(""), sendBuffer("") {}
+Client::Client() : fd(-1), nickname(""), username(""), passAccepted(false), registered(false), recvBuffer(""), sendBuffer(""), channelCount(0) {}
 
 int Client::getFd() const { return fd; }
 void Client::setFd(int newFd) { fd = newFd; }
@@ -34,3 +34,7 @@ void Client::queueOneCommandToBuffer(const string& comm) {
 	sendBuffer.append(comm);
 	sendBuffer.append("\r\n");
 }
+
+void Client::incrementChannelCount() { ++channelCount; }
+
+bool Client::hasEnoughChannels() const { return channelCount >= CHANNEL_LIMIT; }

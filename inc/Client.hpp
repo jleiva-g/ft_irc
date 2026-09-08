@@ -2,6 +2,10 @@
 
 #include <string>
 
+#ifndef CHANNEL_LIMIT
+#define CHANNEL_LIMIT 100
+#endif
+
 using std::string;
 
 class	Client {
@@ -13,6 +17,7 @@ class	Client {
 		bool	registered;
 		string	recvBuffer;
 		string	sendBuffer;
+		int		channelCount;
 
 	public:
 		Client();
@@ -32,4 +37,7 @@ class	Client {
 		void	appendRecvData(const string& data);
 		bool	getOneCommandFromBuffer(string& comm);
 		void	queueOneCommandToBuffer(const string& comm);
+
+		bool	hasEnoughChannels() const;
+		void	incrementChannelCount();
 };

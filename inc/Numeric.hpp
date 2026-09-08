@@ -14,6 +14,7 @@ enum	Numeric {
 	ERR_NORECIPIENT			= 411,
 	ERR_NOTEXTTOSEND		= 412,
 	ERR_UNKNOWNCOMMAND		= 421,
+	ERR_NOMOTD				= 422,
 	ERR_NONICKNAMEGIVEN		= 431,
 	ERR_ERRONEUSNICKNAME	= 432,
 	ERR_NICKNAMEINUSE		= 433,
@@ -34,41 +35,42 @@ enum	Numeric {
 
 struct NumericInfo {
 	Numeric		code;
-	const char*	message;
+	const string	message;
 };
 
 static const NumericInfo NUMERIC_MESSAGES[] = {
-	{RPL_WELCOME,				"Welcome to the Internet Relay Network"},
-	{RPL_YOURHOST,				"Your host is"},
-	{RPL_CREATED,				"This server was created"},
-	{RPL_MYINFO,				""},
-	{RPL_NOTOPIC,				"No topic is set"},
+	{RPL_WELCOME,				":Welcome to the Internet Relay Network"},
+	{RPL_YOURHOST,				":Your host is"},
+	{RPL_CREATED,				":This server was created"},
+	{RPL_MYINFO,				":Server info:"},
+	{RPL_NOTOPIC,				":No topic is set"},
 	{RPL_TOPIC,					""},
 	{RPL_NAMREPLY,				""},
-	{RPL_ENDOFNAMES,			"End of /NAMES list"},
-	{ERR_NOSUCHNICK,			"No such nick/channel"},
-	{ERR_NOSUCHCHANNEL,			"No such channel"},
-	{ERR_CANNOTSENDTOCHAN,		"Cannot send to channel"},
-	{ERR_TOOMANYCHANNELS,		"You have joined too many channels"},
-	{ERR_NORECIPIENT,			"No recipient given"},
-	{ERR_NOTEXTTOSEND,			"No text to send"},
-	{ERR_UNKNOWNCOMMAND,		"Unknown command"},
-	{ERR_NONICKNAMEGIVEN,		"No nickname given"},
-	{ERR_ERRONEUSNICKNAME,		"Erroneous nickname"},
-	{ERR_NICKNAMEINUSE,			"Nickname is already in use"},
-	{ERR_USERNOTINCHANNEL,		"They aren't on that channel"},
-	{ERR_NOTONCHANNEL,			"You're not on that channel"},
-	{ERR_USERONCHANNEL,			"is already on channel"},
-	{ERR_NOTREGISTERED,			"You have not registered"},
-	{ERR_NEEDMOREPARAMS,		"Not enough parameters"},
-	{ERR_ALREADYREGISTERED,		"You may not reregister"},
-	{ERR_PASSWDMISMATCH,		"Password incorrect"},
-	{ERR_CHANNELISFULL,			"Cannot join channel (+l)"},
-	{ERR_UNKNOWNMODE,			"is unknown mode char to me"},
-	{ERR_INVITEONLYCHAN,		"Cannot join channel (+i)"},
-	{ERR_BADCHANNELKEY,			"Cannot join channel (+k)"},
-	{ERR_BADCHANMASK,			"Bad Channel Mask"},
-	{ERR_CHANOPRIVSNEEDED,		"You're not channel operator"}
+	{RPL_ENDOFNAMES,			":End of /NAMES list"},
+	{ERR_NOSUCHNICK,			":No such nick/channel"},
+	{ERR_NOSUCHCHANNEL,			":No such channel"},
+	{ERR_CANNOTSENDTOCHAN,		":Cannot send to channel"},
+	{ERR_TOOMANYCHANNELS,		":You have joined too many channels"},
+	{ERR_NORECIPIENT,			":No recipient given"},
+	{ERR_NOTEXTTOSEND,			":No text to send"},
+	{ERR_UNKNOWNCOMMAND,		":Unknown command"},
+	{ERR_NOMOTD,				":MOTD File is missing"},
+	{ERR_NONICKNAMEGIVEN,		":No nickname given"},
+	{ERR_ERRONEUSNICKNAME,		":Erroneous nickname"},
+	{ERR_NICKNAMEINUSE,			":Nickname is already in use"},
+	{ERR_USERNOTINCHANNEL,		":They aren't on that channel"},
+	{ERR_NOTONCHANNEL,			":You're not on that channel"},
+	{ERR_USERONCHANNEL,			":is already on channel"},
+	{ERR_NOTREGISTERED,			":You have not registered"},
+	{ERR_NEEDMOREPARAMS,		":Not enough parameters"},
+	{ERR_ALREADYREGISTERED,		":You may not reregister"},
+	{ERR_PASSWDMISMATCH,		":Password incorrect"},
+	{ERR_CHANNELISFULL,			":Cannot join channel (+l)"},
+	{ERR_UNKNOWNMODE,			":is unknown mode char to me"},
+	{ERR_INVITEONLYCHAN,		":Cannot join channel (+i)"},
+	{ERR_BADCHANNELKEY,			":Cannot join channel (+k)"},
+	{ERR_BADCHANMASK,			":Bad Channel Mask"},
+	{ERR_CHANOPRIVSNEEDED,		":You're not channel operator"}
 };
 
 NumericInfo getNumericInfo(Numeric code) {
@@ -76,5 +78,6 @@ NumericInfo getNumericInfo(Numeric code) {
 		if (NUMERIC_MESSAGES[i].code == code)
 			return NUMERIC_MESSAGES[i];
 	}
-	return {ERR_UNKNOWNCOMMAND, "Unknown command"};
+	NumericInfo unknown = {ERR_UNKNOWNCOMMAND, "Unknown command"};
+	return unknown;
 }

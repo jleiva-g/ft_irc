@@ -95,14 +95,14 @@ class	Server {
 		void	sendChannelModes(Client& client, const string& channelName);
 		void	sendChannelModesToAll(Client& client, const string& channelName);
 		bool	canModifyChannel(Client& client, const string& channelName) const;
-		void	setInviteOnly(Client& client, const string& channelName, bool inviteOnly);
-		void	setTopicRestricted(Client& client, const string& channelName, bool topicOpOnly);
-		void	setChannelKey(Client& client, const string& channelName, const string& key);
-		void	removeChannelKey(Client& client, const string& channelName);
-		void	setChannelOperator(Client& client, const string& channelName, const string& targetNickname);
-		void	removeChannelOperator(Client& client, const string& channelName, const string& target);
-		void	setUserLimit(Client& client, const string& channelName, size_t limit);
-		void	removeUserLimit(Client& client, const string& channelName);
+		void	setInviteOnly(const string& channelName, bool inviteOnly);
+		void	setTopicRestricted(const string& channelName, bool topicOpOnly);
+		void	setChannelKey(const string& channelName, const string& key);
+		void	removeChannelKey(const string& channelName);
+		void	setChannelOperator(const string& channelName, const string& targetNickname);
+		void	removeChannelOperator(const string& channelName, const string& target);
+		void	setUserLimit(const string& channelName, size_t limit);
+		void	removeUserLimit(const string& channelName);
 
 		bool	isClientInChannel(Client& client, const string& channelName) const;
 		bool	isClientInvitedToChannel(Client& client, const string& channelName) const;
@@ -115,4 +115,5 @@ class	Server {
 		bool	isNicknameRegistered(const string& nickname) const;
 		bool	passMatch(const string& pass) const;
 		bool	isChannelPass(const string& channelName, const string& pass) const;
+		bool	clientHasEnoughChannels(Client& client) const;
 };

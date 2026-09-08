@@ -17,6 +17,8 @@
 #include "Exceptions.hpp"
 #include "Client.hpp"
 #include "Channel.hpp"
+#include "Command.hpp"
+#include "Numeric.hpp"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
@@ -30,6 +32,31 @@
 using std::stringstream;
 
 const string Server::connectionAcceptMsg = ":Welcome to the Internet Relay Network pepito!usuario@host";
+
+static string escapeForLog(const string& value) {
+	static const char hex[] = "0123456789ABCDEF";
+	string escaped;
+
+	for (size_t i = 0; i < value.size(); ++i) {
+		unsigned char character = static_cast<unsigned char>(value[i]);
+		if (character == '\\')
+			escaped += "\\\\";
+		else if (character == '\r')
+			escaped += "\\r";
+		else if (character == '\n')
+			escaped += "\\n";
+		else if (character == '\t')
+			escaped += "\\t";
+		else if (character < 32 || character == 127) {
+			escaped += "\\x";
+			escaped += hex[character >> 4];
+			escaped += hex[character & 0x0F];
+		}
+		else
+			escaped += static_cast<char>(character);
+	}
+	return escaped;
+}
 
 /**
  * @brief Constructs a `Server` instance with the specified port and password.
@@ -48,7 +75,6 @@ Server::Server(int port, const string& password) : socketFd(-1), port(port), pas
  *  allocated resources are properly released to prevent memory leaks.
  */
 Server::~Server() {
-	// The server owns the client and channel objects stored in these maps.
 	for (client_iterator it = clients.begin(); it != clients.end(); it++)
 		delete it->second;
 	for (channel_iterator it = channels.begin(); it != channels.end(); it++)
@@ -64,13 +90,11 @@ Server::~Server() {
  */
 void Server::mainLoop() {
 	while (true) {
-		// Wait indefinitely until at least one monitored descriptor reports an event.
 		int pollRes = poll(pollFds.data(), pollFds.size(), -1);
 		if (pollRes < 0) {
 			// Poll errors must be handled before processing the event list.
 		}
 
-		// Dispatch the events reported by poll() to the appropriate handlers.
 		for (size_t i = 0; i < pollFds.size(); i++)
 			proccessPollfd(i);
 	}
@@ -97,7 +121,6 @@ void Server::proccessPollfd(int i) {
 		return;
 	}
 
-	// Readable and writable events may be reported together for the same socket.
 	if (revents & POLLIN)
 		proccessIn(fd);
 
@@ -124,7 +147,6 @@ void Server::proccessPollfd(int i) {
 void Server::proccessIn(int fd) {
 	char buff[1024];
 	if (fd == socketFd) {
-		// A readable listening socket indicates that a client is waiting to connect.
 		int acceptRes = accept(socketFd, NULL, NULL);
 		if (acceptRes < 0) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
@@ -133,20 +155,17 @@ void Server::proccessIn(int fd) {
 			return;
 		}
 
-		// Keep client operations from blocking the server's event loop.
 		int flags = fcntl(acceptRes, F_GETFL, 0);
 		if (flags == -1 || fcntl(acceptRes, F_SETFL, flags | O_NONBLOCK) == -1) {
 			close(acceptRes);
 			return;
 		}
 
-		// Monitor the new client for incoming data and pending outgoing data.
 		pollfd newUserfd;
 		newUserfd.fd = acceptRes;
 		newUserfd.events = POLLIN;
 		newUserfd.revents = 0;
 
-		// Queue the initial welcome response; it will be sent on POLLOUT.
 		clients[acceptRes] = new Client();
 		clients[acceptRes]->setFd(acceptRes);
 
@@ -159,7 +178,6 @@ void Server::proccessIn(int fd) {
 			return;
 		Client* client = it->second;
 
-		// Append received bytes so incomplete commands can be completed later.
 		ssize_t bytes = recv(fd, buff, sizeof(buff), 0);
 		if (bytes == 0) {
 			removeClient(fd);
@@ -175,10 +193,12 @@ void Server::proccessIn(int fd) {
 		string response(buff, static_cast<size_t>(bytes));
 		client->appendRecvData(response);
 
-		while(client->getOneCommandFromBuffer(response)) {
-			std::cout << "Received command from client on fd " << fd << ": " << response << std::endl;
+		std::cout << "Received " << bytes << " bytes from client on fd " << fd << std::endl;
+		std::cout << "Data: " << escapeForLog(response) << std::endl;
 
-			//TODO: Process the command and generate a response to queue for the client.
+		while(client->getOneCommandFromBuffer(response)) {
+			std::cout << "Received command from client on fd " << fd << ": " << escapeForLog(response) << std::endl;
+			//Command::handleCommand(*client, *this, response);
 		}
 	}
 }
@@ -292,12 +312,10 @@ pollfd& Server::findPollfd(int fd) {
  * @throw SocketNotSupportListenException If the socket does not support listening.
  */
 void Server::start() {
-	// Create an IPv4 TCP listening socket.
 	if ((socketFd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 		manageErrorsFromSocket(errno, __FILE__, __LINE__ - 1);
 
 	sockaddr_in addr;
-	// Bind on all local interfaces and the configured port.
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
 	addr.sin_port = htons(port);
@@ -312,7 +330,6 @@ void Server::start() {
 		manageErrorsFromListen(errno, __FILE__, __LINE__ - 2);
 	}
 
-	// The listening descriptor only needs to report incoming connections.
 	pollfd listenfd;
 	listenfd.fd = socketFd;
 	listenfd.events = POLLIN;
@@ -333,6 +350,15 @@ void Server::start() {
  */
 bool Server::checkPassword(const string& pass) const { return pass == password; }
 
+/**
+ * @brief Retrieves a client by their file descriptor.
+ * @details Searches the server's client map for a client with the specified
+ *  file descriptor and returns a pointer to the client if found, or NULL
+ *  if not found.
+ * 
+ * @param[in] fd File descriptor of the client to retrieve.
+ * @return Pointer to the client if found, NULL otherwise.
+ */
 Client* Server::getClientByFd(int fd) const {
 	client_iterator it = clients.find(fd);
 	if (it != clients.end())
@@ -340,6 +366,14 @@ Client* Server::getClientByFd(int fd) const {
 	return NULL;
 }
 
+/**
+ * @brief Retrieves a client by their nickname.
+ * @details Searches the server's nickname map for a client with the specified
+ *  nickname and returns a pointer to the client if found, or NULL if not found.
+ * 
+ * @param[in] nickname Nickname of the client to retrieve.
+ * @return Pointer to the client if found, NULL otherwise.
+ */
 Client* Server::getClientByNickname(const string& nickname) const {
 	nickname_iterator it = nicknames.find(nickname);
 	if (it != nicknames.end())
@@ -347,8 +381,24 @@ Client* Server::getClientByNickname(const string& nickname) const {
 	return NULL;
 }
 
+/**
+ * @brief Marks a client as having accepted the server password.
+ * @details Sets the `passAccepted` flag of the specified client to true,
+ *  indicating that the client has successfully authenticated with the server.
+ * 
+ * @param[in,out] client Client to mark as having accepted the password.
+ */
 void Server::setPassAccepted(Client& client) { client.setPassAccepted(true); }
 
+/**
+ * @brief Sets a client's nickname and notifies other clients of the change.
+ * @details Updates the client's nickname, removes the old nickname from the
+ *  server's nickname map, and sends a notification to all clients in the same
+ *  channels about the nickname change.
+ * 
+ * @param[in,out] client Client whose nickname is being changed.
+ * @param[in] nickname New nickname to assign to the client.
+ */
 void Server::setNickname(Client& client, const string& nickname) {
 	if (!client.getNickname().empty()) {
 		stringstream ss;
@@ -356,44 +406,71 @@ void Server::setNickname(Client& client, const string& nickname) {
 		
 		nicknames.erase(client.getNickname());
 		queueMessage(findPollfd(client.getFd()), ss.str());
-		// TODO: Notify other clients in the same channels about the nickname change.
+		set<Client*> notifiedClients;
+		for (channel_iterator it = channels.begin(); it != channels.end(); it++) {
+			Channel* channel = it->second;
+			if (!channel->isMember(&client)) continue;
+			const set<Client*>& members = channel->getMembers();
+			for (set<Client*>::const_iterator memberIt = members.begin(); memberIt != members.end(); ++memberIt) {
+				Client* member = *memberIt;
+				if (member != &client && notifiedClients.insert(member).second)
+					queueMessage(findPollfd(member->getFd()), ss.str());
+			}
+		}
 	}
 	client.setNickname(nickname);
 	nicknames[nickname] = &client;
 }
 
+/**
+ * @brief Sets a client's registered status.
+ * @details Sets the `registered` flag of the specified client to true,
+ *  indicating that the client has successfully registered with the server.
+ * 
+ * @param[in,out] client Client to mark as registered.
+ */
 void Server::setRegistered(Client& client) {
 	client.setRegistered(true);
-	stringstream ss;
 
-	ss << ":Welcome to the Internet Relay Network " << client.getNickname() << "!" << client.getUsername() << "@host";
-	sendCodeToClient(client, 001, ss.str());
-
-	ss.str("");
-	ss << ":Your host is ft_irc.server, running version 1.0";
-	sendCodeToClient(client, 002, ss.str());
-
-	ss.str("");
-	ss << ":This server was created on " << __DATE__;
-	sendCodeToClient(client, 003, ss.str());
-
-	ss.str("");
-	ss << ":Server info: ft_irc.server 1.0";
-	sendCodeToClient(client, 004, ss.str());
-
-	ss.str("");
-	ss << ":There is no message of the day";
-	sendCodeToClient(client, 422, ss.str());
+	sendCodeToClient(client, RPL_WELCOME, getNumericInfo(RPL_WELCOME).message + " " + client.getNickname() + "!" + client.getUsername() + "@host");
+	sendCodeToClient(client, RPL_YOURHOST, getNumericInfo(RPL_YOURHOST).message + " ft_irc.server, running version 1.0");
+	sendCodeToClient(client, RPL_CREATED, getNumericInfo(RPL_CREATED).message + " " + __DATE__);
+	sendCodeToClient(client, RPL_MYINFO, getNumericInfo(RPL_MYINFO).message + " ft_irc.server 1.0");
+	sendCodeToClient(client, ERR_NOMOTD, getNumericInfo(ERR_NOMOTD).message);
 }
 
+/**
+ * @brief Checks if a nickname is already in use by a client.
+ * @details Searches the server's nickname map for a client with the specified
+ *  nickname and returns true if found, false otherwise.
+ *
+ * @param[in] nickname Nickname to check.
+ * @return true if the nickname is in use, false otherwise.
+ */
 bool Server::isNicknameInUse(const string& nickname) const { return nicknames.find(nickname) != nicknames.end(); }
 
+/**
+ * @brief Removes a client from all channels.
+ * @details Iterates through all channels and removes the specified client from each
+ *  channel they are a member of.
+ *
+ * @param[in,out] client Client to remove from all channels.
+ */
 void Server::leaveAllChannels(Client& client) {
 	for (channel_iterator it = channels.begin(); it != channels.end(); it++)
 		if (it->second->isMember(&client))
 			partChannel(client, it->first, "Client disconnected");
 }
 
+/**
+ * @brief Joins a client to a channel.
+ * @details Adds the specified client to the channel with the given name.
+ *  If the channel does not exist, it is created.
+ *
+ * @param[in,out] client Client to join the channel.
+ * @param[in] channelName Name of the channel to join.
+ * @param[in] key Key for the channel, if required.
+ */
 void Server::joinChannel(Client& client, const string& channelName, const string& key) {
 	Channel* channel;
 	channel_iterator it = channels.find(channelName);
@@ -405,15 +482,15 @@ void Server::joinChannel(Client& client, const string& channelName, const string
 		channel = it->second;
 
 	if (channel->hasModeInviteOnly() && !channel->isInvited(&client)) {
-		sendCodeToClient(client, 473, channelName + " :Cannot join channel (+i) - invite only");
+		sendCodeToClient(client, ERR_INVITEONLYCHAN, channelName + getNumericInfo(ERR_INVITEONLYCHAN).message);
 		return;
 	}
 	if (channel->hasModeKey() && channel->getKey() != key) {
-		sendCodeToClient(client, 475, channelName + " :Cannot join channel (+k) - incorrect key");
+		sendCodeToClient(client, ERR_BADCHANNELKEY, channelName + getNumericInfo(ERR_BADCHANNELKEY).message);
 		return;
 	}
 	if (channel->hasModeUserLimit() && channel->getMembers().size() >= channel->getUserLimit()) {
-		sendCodeToClient(client, 471, channelName + " :Cannot join channel (+l) - user limit reached");
+		sendCodeToClient(client, ERR_CHANNELISFULL, channelName + getNumericInfo(ERR_CHANNELISFULL).message);
 		return;
 	}
 
@@ -425,6 +502,14 @@ void Server::joinChannel(Client& client, const string& channelName, const string
 	channel->addMember(&client);
 }
 
+/**
+ * @brief Parts a client from a channel.
+ * @details Removes the specified client from the channel with the given name.
+ *
+ * @param[in,out] client Client to part from the channel.
+ * @param[in] channelName Name of the channel to part from.
+ * @param[in] reason Reason for parting the channel.
+ */
 void Server::partChannel(Client& client, const string& channelName, const string& reason) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
@@ -442,12 +527,30 @@ void Server::partChannel(Client& client, const string& channelName, const string
 	}
 }
 
+/**
+ * @brief Sends a numeric message to a client.
+ * @details Formats a numeric message with the specified code and message,
+ *  and queues it for delivery to the client.
+ *
+ * @param[in,out] client Client to send the message to.
+ * @param[in] code Numeric code for the message.
+ * @param[in] msg Message to send.
+ */
 void Server::sendCodeToClient(Client& client, int code, const string& msg) {
 	stringstream ss;
 	ss << ":ft_irc.server " << std::setfill('0') << std::setw(3) << code << " " << client.getNickname() << " " << msg;
 	queueMessage(findPollfd(client.getFd()), ss.str());
 }
 
+/**
+ * @brief Notifies all members of a channel about a change.
+ * @details Sends a message to all clients in the specified channel, excluding
+ *  the client who initiated the change.
+ * 
+ * @param[in,out] client Client who initiated the change.
+ * @param[in] channelName Name of the channel where the change occurred.
+ * @param[in] msg Message to send to the channel members.
+ */
 void Server::notifyChannelChange(Client& client, const string& channelName, const string& msg) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
@@ -461,6 +564,15 @@ void Server::notifyChannelChange(Client& client, const string& channelName, cons
 	}
 }
 
+/**
+ * @brief Broadcasts a message to all members of a channel, excluding a specific client.
+ * @details Sends a message to all clients in the specified channel, excluding the
+ *  client specified by `excludeClient`.
+ *
+ * @param[in] channelName Name of the channel to broadcast the message to.
+ * @param[in] msg Message to broadcast.
+ * @param[in] excludeClient Client to exclude from receiving the message.
+ */
 void Server::broadcastToChannel(const string& channelName, const string& msg, Client* excludeClient) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
@@ -473,6 +585,15 @@ void Server::broadcastToChannel(const string& channelName, const string& msg, Cl
 	}
 }
 
+/**
+ * @brief Sends a private message to a client.
+ * @details Formats a private message with the sender's nickname and username,
+ *  and queues it for delivery to the target client.
+ *
+ * @param[in,out] client Client who is sending the message.
+ * @param[in] target Nickname of the client to send the message to.
+ * @param[in] msg Message to send.
+ */
 void Server::sendMsgToClient(Client& client, const string& target, const string& msg) {
 	nickname_iterator it = nicknames.find(target);
 	Client* targetClient = it->second;
@@ -482,6 +603,16 @@ void Server::sendMsgToClient(Client& client, const string& target, const string&
 	queueMessage(findPollfd(targetClient->getFd()), ss.str());
 }
 
+/**
+ * @brief Sends a message to all members of a channel, excluding the sender.
+ * @details Formats a message with the sender's nickname and username, and
+ *  queues it for delivery to all clients in the specified channel, excluding
+ *  the sender.
+ *
+ * @param[in,out] client Client who is sending the message.
+ * @param[in] channelName Name of the channel to send the message to.
+ * @param[in] msg Message to send.
+ */
 void Server::sendMsgToChannel(Client& client, const string& channelName, const string& msg) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
@@ -497,6 +628,15 @@ void Server::sendMsgToChannel(Client& client, const string& channelName, const s
 	}
 }
 
+/**
+ * @brief Kicks a client from a channel.
+ * @details Removes the specified client from the channel with the given name.
+ *
+ * @param[in,out] client Client who is kicking another client.
+ * @param[in] channelName Name of the channel to kick the client from.
+ * @param[in] targetNickname Nickname of the client to kick.
+ * @param[in] reason Reason for kicking the client.
+ */
 void Server::kickClient(Client& client, const string& channelName, const string& targetNickname, const string& reason) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
@@ -509,11 +649,28 @@ void Server::kickClient(Client& client, const string& channelName, const string&
 	channel->removeMember(targetClient);
 }
 
+/**
+ * @brief Kicks multiple clients from a channel.
+ * @details Removes the specified clients from the channel with the given name.
+ *
+ * @param[in,out] client Client who is kicking other clients.
+ * @param[in] channelName Name of the channel to kick the clients from.
+ * @param[in] targetClients Vector of nicknames of the clients to kick.
+ * @param[in] reason Reason for kicking the clients.
+ */
 void Server::kickClient(Client& client, const string& channelName, const vector<string>& targetClients, const string& reason) {
 	for (size_t i = 0; i < targetClients.size(); i++)
 		kickClient(client, channelName, targetClients[i], reason);
 }
 
+/**
+ * @brief Invites a client to a channel.
+ * @details Sends an invitation to the specified client to join the channel.
+ *
+ * @param[in,out] client Client who is inviting another client.
+ * @param[in] targetNickname Nickname of the client to invite.
+ * @param[in] channelName Name of the channel to invite the client to.
+ */
 void Server::inviteClient(Client& client, const string& targetNickname, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
@@ -531,6 +688,13 @@ void Server::inviteClient(Client& client, const string& targetNickname, const st
 	channel->addInvited(targetClient);
 }
 
+/**
+ * @brief Sends the topic of a channel to a client.
+ * @details Retrieves the topic of the specified channel and sends it to the client.
+ *
+ * @param[in,out] client Client to send the topic to.
+ * @param[in] channelName Name of the channel to get the topic from.
+ */
 void Server::sendTopic(Client& client, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
@@ -544,6 +708,14 @@ void Server::sendTopic(Client& client, const string& channelName) {
 	sendCodeToClient(client, code, ss.str());
 }
 
+/**
+ * @brief Sets the topic of a channel.
+ * @details Updates the topic of the specified channel and notifies all members.
+ *
+ * @param[in,out] client Client who is setting the topic.
+ * @param[in] channelName Name of the channel to set the topic for.
+ * @param[in] topic New topic for the channel.
+ */
 void Server::setTopic(Client& client, const string& channelName, const string& topic) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
@@ -555,6 +727,13 @@ void Server::setTopic(Client& client, const string& channelName, const string& t
 	notifyChannelChange(client, channelName, ss.str());
 }
 
+/**
+ * @brief Sends the modes of a channel to a client.
+ * @details Retrieves the modes of the specified channel and sends them to the client.
+ *
+ * @param[in,out] client Client to send the modes to.
+ * @param[in] channelName Name of the channel to get the modes from.
+ */
 void Server::sendChannelModes(Client& client, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
@@ -577,7 +756,13 @@ void Server::sendChannelModes(Client& client, const string& channelName) {
 	sendCodeToClient(client, 324, ss.str());
 }
 
-// TODO Add this at the end of the modifications of the channel modes, send the list of operators in the channel.
+/**
+ * @brief Sends the modes of a channel to all members.
+ * @details Retrieves the modes of the specified channel and sends them to all members.
+ *
+ * @param[in,out] client Client who is sending the modes.
+ * @param[in] channelName Name of the channel to get the modes from.
+ */
 void Server::sendChannelModesToAll(Client& client, const string& channelName) {
 	channel_iterator it = channels.find(channelName);
 
@@ -603,38 +788,85 @@ void Server::sendChannelModesToAll(Client& client, const string& channelName) {
 	queueMessage(findPollfd(client.getFd()), ss.str());
 }
 
+/**
+ * @brief Checks if a client can modify a channel.
+ * @details Verifies if the specified client is an operator of the channel.
+ *
+ * @param[in] client Client to check.
+ * @param[in] channelName Name of the channel to check.
+ * @return true if the client is an operator of the channel, false otherwise.
+ */
 bool Server::canModifyChannel(Client& client, const string& channelName) const {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
 	return channel->isOperator(&client);
 }
 
-void Server::setInviteOnly(Client& client, const string& channelName, bool inviteOnly) {
+/**
+ * @brief Sets the invite-only mode of a channel.
+ * @details Enables or disables the invite-only mode for the specified channel.
+ *
+ * @param[in,out] client Client who is setting the mode.
+ * @param[in] channelName Name of the channel to set the mode for.
+ * @param[in] inviteOnly true to enable invite-only mode, false to disable it.
+ */
+void Server::setInviteOnly(const string& channelName, bool inviteOnly) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
 	channel->setInviteOnly(inviteOnly);
 }
 
-void Server::setTopicRestricted(Client& client, const string& channelName, bool topicOpOnly) {
+/**
+ * @brief Sets the topic restriction mode of a channel.
+ * @details Enables or disables the topic restriction mode for the specified channel.
+ *
+ * @param[in,out] client Client who is setting the mode.
+ * @param[in] channelName Name of the channel to set the mode for.
+ * @param[in] topicOpOnly true to enable topic restriction, false to disable it.
+ */
+void Server::setTopicRestricted(const string& channelName, bool topicOpOnly) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
 	channel->setTopicOpOnly(topicOpOnly);
 }
 
-void Server::setChannelKey(Client& client, const string& channelName, const string& key) {
+/**
+ * @brief Sets the key for a channel.
+ * @details Assigns a key to the specified channel and marks it as having a key.
+ * 
+ * @param[in,out] client Client who is setting the key.
+ * @param[in] channelName Name of the channel to set the key for.
+ * @param[in] key Key to assign to the channel.
+ */
+void Server::setChannelKey(const string& channelName, const string& key) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
 	channel->setKey(key);
 	channel->setHasKey(true);
 }
 
-void Server::removeChannelKey(Client& client, const string& channelName) {
+/**
+ * @brief Removes the key from a channel.
+ * @details Removes the key from the specified channel and marks it as not having a key.
+ *
+ * @param[in,out] client Client who is removing the key.
+ * @param[in] channelName Name of the channel to remove the key from.
+ */
+void Server::removeChannelKey(const string& channelName) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
 	channel->setHasKey(false);
 }
 
-void Server::setChannelOperator(Client& client, const string& channelName, const string& targetNickname) {
+/**
+ * @brief Sets a client as an operator of a channel.
+ * @details Adds the specified client as an operator of the channel with the given name.
+ * 
+ * @param[in,out] client Client who is setting the operator.
+ * @param[in] channelName Name of the channel to set the operator for.	
+ * @param[in] targetNickname Nickname of the client to set as an operator.
+ */
+void Server::setChannelOperator(const string& channelName, const string& targetNickname) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
 	nickname_iterator nit = nicknames.find(targetNickname);
@@ -643,7 +875,15 @@ void Server::setChannelOperator(Client& client, const string& channelName, const
 	channel->addOperator(targetClient);
 }
 
-void Server::removeChannelOperator(Client& client, const string& channelName, const string& targetNickname) {
+/**
+ * @brief Removes a client as an operator of a channel.
+ * @details Removes the specified client as an operator of the channel with the given name.
+ *
+ * @param[in,out] client Client who is removing the operator.
+ * @param[in] channelName Name of the channel to remove the operator from.
+ * @param[in] targetNickname Nickname of the client to remove as an operator.
+ */
+void Server::removeChannelOperator(const string& channelName, const string& targetNickname) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
 	nickname_iterator nit = nicknames.find(targetNickname);
@@ -652,35 +892,75 @@ void Server::removeChannelOperator(Client& client, const string& channelName, co
 	channel->removeOperator(targetClient);
 }
 
-void Server::setUserLimit(Client& client, const string& channelName, size_t userLimit) {
+/**
+ * @brief Sets the user limit for a channel.
+ * @details Sets the maximum number of users allowed in the specified channel.
+ *
+ * @param[in,out] client Client who is setting the user limit.
+ * @param[in] channelName Name of the channel to set the user limit for.
+ * @param[in] userLimit Maximum number of users allowed in the channel.
+ */
+void Server::setUserLimit(const string& channelName, size_t userLimit) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
 
 	channel->setUserLimit(userLimit);
 }
 
-void Server::removeUserLimit(Client& client, const string& channelName) {
+/**
+ * @brief Removes the user limit from a channel.
+ * @details Removes the user limit from the specified channel.
+ *
+ * @param[in,out] client Client who is removing the user limit.
+ * @param[in] channelName Name of the channel to remove the user limit from.
+ */
+void Server::removeUserLimit(const string& channelName) {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
 
 	channel->setUserLimit(-1);
 }
 
+/**
+ * @brief Checks if a client is in a channel.
+ * @details Determines if the specified client is a member of the channel with the given name.
+ *
+ * @param[in] client Client to check.
+ * @param[in] channelName Name of the channel to check.
+ * @return true if the client is in the channel, false otherwise.
+ */
 bool Server::isClientInChannel(Client& client, const string& channelName) const {
+	if (!channelExists(channelName)) {
+		return false;
+	}
 	channel_iterator it = channels.find(channelName);
 
 	Channel* channel = it->second;
 	return channel->isMember(&client);
 }
 
+/**
+ * @brief Checks if a client is invited to a channel.
+ * @details Determines if the specified client is invited to the channel with the given name.
+ *
+ * @param[in] client Client to check.
+ * @param[in] channelName Name of the channel to check.
+ * @return true if the client is invited to the channel, false otherwise.
+ */
 bool Server::isClientInvitedToChannel(Client& client, const string& channelName) const {
 	channel_iterator it = channels.find(channelName);
 
 	Channel* channel = it->second;
 	return channel->isInvited(&client);
-	return false; // Placeholder until invite tracking is implemented
 }
 
+/**
+ * @brief Checks if a channel is invite-only.
+ * @details Determines if the specified channel is invite-only.
+ *
+ * @param[in] channelName Name of the channel to check.
+ * @return true if the channel is invite-only, false otherwise.
+ */
 bool Server::isChannelInviteOnly(const string& channelName) const {
 	channel_iterator it = channels.find(channelName);
 
@@ -688,6 +968,13 @@ bool Server::isChannelInviteOnly(const string& channelName) const {
 	return channel->hasModeInviteOnly();
 }
 
+/**
+ * @brief Checks if a channel's topic is restricted.
+ * @details Determines if the topic of the specified channel is restricted to operators only.
+ *
+ * @param[in] channelName Name of the channel to check.
+ * @return true if the channel's topic is restricted, false otherwise.
+ */
 bool Server::isChannelTopicRestricted(const string& channelName) const {
 	channel_iterator it = channels.find(channelName);
 
@@ -695,6 +982,13 @@ bool Server::isChannelTopicRestricted(const string& channelName) const {
 	return channel->hasModeTopicOpOnly();
 }
 
+/**
+ * @brief Checks if a channel is key-protected.
+ * @details Determines if the specified channel is protected by a password.
+ *
+ * @param[in] channelName Name of the channel to check.
+ * @return true if the channel is key-protected, false otherwise.
+ */
 bool Server::isChannelKeyProtected(const string& channelName) const {
 	channel_iterator it = channels.find(channelName);
 
@@ -702,6 +996,13 @@ bool Server::isChannelKeyProtected(const string& channelName) const {
 	return channel->hasModeKey();
 }
 
+/**
+ * @brief Checks if a channel is full.
+ * @details Determines if the specified channel has reached its user limit.
+ *
+ * @param[in] channelName Name of the channel to check.
+ * @return true if the channel is full, false otherwise.
+ */
 bool Server::isChannelFull(const string& channelName) const {
 	channel_iterator it = channels.find(channelName);
 
@@ -709,6 +1010,14 @@ bool Server::isChannelFull(const string& channelName) const {
 	return channel->isFull();
 }
 
+/**
+ * @brief Checks if a client is an operator of a channel.
+ * @details Determines if the specified client is an operator of the channel with the given name.
+ *
+ * @param[in] channelName Name of the channel to check.
+ * @param[in] nickname Nickname of the client to check.
+ * @return true if the client is an operator of the channel, false otherwise.
+ */
 bool Server::isChannelOperator(const string& channelName, const string& nickname) const {
 	channel_iterator it = channels.find(channelName);
 	Channel* channel = it->second;
@@ -718,14 +1027,36 @@ bool Server::isChannelOperator(const string& channelName, const string& nickname
 	return channel->isOperator(client);
 }
 
+/**
+ * @brief Checks if a channel exists.
+ * @details Determines if the specified channel exists.
+ *
+ * @param[in] channelName Name of the channel to check.
+ * @return true if the channel exists, false otherwise.
+ */
 bool Server::channelExists(const string& channelName) const {
 	return channels.find(channelName) != channels.end();
 }
 
+/**
+ * @brief Checks if a nickname is registered.
+ * @details Determines if the specified nickname is registered.
+ *
+ * @param[in] nickname Nickname to check.
+ * @return true if the nickname is registered, false otherwise.
+ */
 bool Server::isNicknameRegistered(const string& nickname) const {
 	return nicknames.find(nickname) != nicknames.end();
 }
 
+/**
+ * @brief Checks if a channel's password is correct.
+ * @details Determines if the specified password matches the password for the channel.
+ *
+ * @param[in] channelName Name of the channel to check.
+ * @param[in] pass Password to check.
+ * @return true if the password is correct, false otherwise.
+ */
 bool Server::isChannelPass(const string& channelName, const string& pass) const {
 	channel_iterator it = channels.find(channelName);
 	if (it == channels.end()) {
@@ -735,4 +1066,20 @@ bool Server::isChannelPass(const string& channelName, const string& pass) const 
 	return channel->hasModeKey() && channel->getKey() == pass;
 }
 
+/**
+ * @brief Checks if a password matches the server's password.
+ * @details Determines if the specified password matches the server's password.
+ *
+ * @param[in] pass Password to check.
+ * @return true if the password is correct, false otherwise.
+ */
 bool Server::passMatch(const string& pass) const { return pass == password; }
+
+/**
+ * @brief Checks if a client has enough channels.
+ * @details Determines if the specified client has joined enough channels.
+ *
+ * @param[in] client Client to check.
+ * @return true if the client has enough channels, false otherwise.
+ */
+bool Server::clientHasEnoughChannels(Client& client) const { return client.hasEnoughChannels(); }

@@ -13,7 +13,8 @@ OBJ_DIR		=	obj
 OBJ			=	$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC))
 
 CC			=	c++
-CFLAGS		=	-Wall -Wextra -Werror -std=c++98
+DEBUG		=	-O0 -g -glldb -fstandalone-debug
+CFLAGS		=	$(DEBUG) -Wall -Wextra -Werror -std=c++98
 
 #Colors
 GREEN		=	\033[0;32m

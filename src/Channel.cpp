@@ -1,25 +1,25 @@
 #include "Channel.hpp"
 
 Channel::Channel()
-    : name(),
-      topic(),
-      key(),
-      members(),
-      operators(),
-      invited(),
-      modes(0),
-      userLimit(-1)
+	: name(),
+	  topic(),
+	  key(),
+	  members(),
+	  operators(),
+	  invited(),
+	  modes(0),
+	  userLimit(-1)
 {}
 
 Channel::Channel(const string& name)
-    : name(name),
-      topic(),
-      key(),
-      members(),
-      operators(),
-      invited(),
-      modes(0),
-      userLimit(-1)
+	: name(name),
+	  topic(),
+	  key(),
+	  members(),
+	  operators(),
+	  invited(),
+	  modes(0),
+	  userLimit(-1)
 {}
 
 /**
@@ -32,78 +32,78 @@ Channel::Channel(const string& name)
  */
 void Channel::changeMode(char mode, bool enable)
 {
-    unsigned int modeBit;
+	unsigned int modeBit;
 
-    if (mode == 'i')
-        modeBit = MODE_INVITE_ONLY;
-    else if (mode == 't')
-        modeBit = MODE_TOPIC_OP_ONLY;
-    else if (mode == 'k')
-        modeBit = MODE_KEY;
-    else if (mode == 'l')
-        modeBit = MODE_USER_LIMIT;
-    else
-        return;
+	if (mode == 'i')
+		modeBit = MODE_INVITE_ONLY;
+	else if (mode == 't')
+		modeBit = MODE_TOPIC_OP_ONLY;
+	else if (mode == 'k')
+		modeBit = MODE_KEY;
+	else if (mode == 'l')
+		modeBit = MODE_USER_LIMIT;
+	else
+		return;
 
-    if (enable)
-        modes |= modeBit;
-    else
-        modes &= ~modeBit;
+	if (enable)
+		modes |= modeBit;
+	else
+		modes &= ~modeBit;
 }
 
 const string& Channel::getName() const
 {
-  return name;
+	return name;
 }
 
 const string& Channel::getTopic() const
 {
-  return topic;
+	return topic;
 }
 
 const set<Client*>& Channel::getMembers() const
 {
-  return members;
+	return members;
 }
 
 const set<Client*>& Channel::getOperators() const
 {
-  return operators;
+	return operators;
 }
 
 const string& Channel::getKey() const
 {
-  return key;
+	return key;
 }
 
 size_t Channel::getUserLimit() const
 {
-  return userLimit;
+	return userLimit;
 }
 
 bool Channel::hasModeInviteOnly() const
 {
-  return (modes & MODE_INVITE_ONLY) != 0;
+	return (modes & MODE_INVITE_ONLY) != 0;
 }
 
 bool Channel::hasModeTopicOpOnly() const
 {
-  return (modes & MODE_TOPIC_OP_ONLY) != 0;
+	return (modes & MODE_TOPIC_OP_ONLY) != 0;
 }
 
 bool Channel::hasModeKey() const
 {
-  return (modes & MODE_KEY) != 0;
+	return (modes & MODE_KEY) != 0;
 }
 
 bool Channel::hasModeUserLimit() const
 {
-  return (modes & MODE_USER_LIMIT) != 0;
+	return (modes & MODE_USER_LIMIT) != 0;
 }
 
 bool Channel::isFull() const
 {
-  return hasModeUserLimit() && members.size() >= userLimit;
+	return hasModeUserLimit() && members.size() >= userLimit;
 }
 
 /**
@@ -112,7 +112,7 @@ bool Channel::isFull() const
  */
 void Channel::setName(const string& value)
 {
-  name = value;
+	name = value;
 }
 
 /**
@@ -121,7 +121,7 @@ void Channel::setName(const string& value)
  */
 void Channel::setTopic(const string& value)
 {
-  topic = value;
+	topic = value;
 }
 
 /**
@@ -130,7 +130,7 @@ void Channel::setTopic(const string& value)
  */
 void Channel::setKey(const string& value)
 {
-  key = value;
+	key = value;
 }
 
 /**
@@ -139,7 +139,7 @@ void Channel::setKey(const string& value)
  */
 void Channel::setInviteOnly(bool value)
 {
-  changeMode('i', value);
+	changeMode('i', value);
 }
 
 /**
@@ -148,7 +148,7 @@ void Channel::setInviteOnly(bool value)
  */
 void Channel::setTopicOpOnly(bool value)
 {
-  changeMode('t', value);
+	changeMode('t', value);
 }
 
 /**
@@ -157,7 +157,7 @@ void Channel::setTopicOpOnly(bool value)
  */
 void Channel::setHasKey(bool value)
 {
-  changeMode('k', value);
+	changeMode('k', value);
 }
 
 /**
@@ -166,7 +166,7 @@ void Channel::setHasKey(bool value)
  */
 void Channel::setUserLimit(size_t value)
 {
-  userLimit = value;
+	userLimit = value;
 }
 
 /**
@@ -176,8 +176,8 @@ void Channel::setUserLimit(size_t value)
  */
 void Channel::addMember(Client* client)
 {
-  if (client)
-    members.insert(client);
+	if (client)
+		members.insert(client);
 }
 
 /**
@@ -187,8 +187,8 @@ void Channel::addMember(Client* client)
  */
 void Channel::removeMember(Client* client)
 {
-    members.erase(client);
-    operators.erase(client);
+	members.erase(client);
+	operators.erase(client);
 }
 
 /**
@@ -198,8 +198,8 @@ void Channel::removeMember(Client* client)
  */
 void Channel::addInvited(Client* client)
 {
-  if (client)
-    invited.insert(client);
+	if (client)
+		invited.insert(client);
 }
 
 /**
@@ -208,7 +208,7 @@ void Channel::addInvited(Client* client)
  */
 void Channel::removeInvited(Client* client)
 {
-    invited.erase(client);
+	invited.erase(client);
 }
 
 /**
@@ -218,10 +218,10 @@ void Channel::removeInvited(Client* client)
  */
 bool Channel::isMember(Client* client) const
 {
-  if (members.find(client) != members.end())
-    return true;
-  else
-    return false;
+	if (members.find(client) != members.end())
+		return true;
+	else
+		return false;
 }
 
 /**
@@ -231,10 +231,10 @@ bool Channel::isMember(Client* client) const
  */
 bool Channel::isInvited(Client* client) const
 {
-  if (invited.find(client) != invited.end())
-    return true;
-  else
-    return false;
+	if (invited.find(client) != invited.end())
+		return true;
+	else
+		return false;
 }
 
 /**
@@ -244,10 +244,10 @@ bool Channel::isInvited(Client* client) const
  */
 bool Channel::isOperator(Client* client) const
 {
-  if (operators.find(client) != operators.end())
-    return true;
-  else
-    return false;
+	if (operators.find(client) != operators.end())
+		return true;
+	else
+		return false;
 }
 
 /**
@@ -257,8 +257,8 @@ bool Channel::isOperator(Client* client) const
  */
 void Channel::addOperator(Client* client)
 {
-    if (isMember(client))
-        operators.insert(client);
+	if (isMember(client))
+		operators.insert(client);
 }
 
 /**
@@ -267,5 +267,6 @@ void Channel::addOperator(Client* client)
  */
 void Channel::removeOperator(Client* client)
 {
-	operators.erase(client);
+	if (client)
+		operators.erase(client);
 }

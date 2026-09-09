@@ -472,11 +472,14 @@ void Server::leaveAllChannels(Client& client) {
  * @param[in] key Key for the channel, if required.
  */
 void Server::joinChannel(Client& client, const string& channelName, const string& key) {
-	Channel* channel;
+	Channel*	channel;
+	bool		created = false;
+
 	channel_iterator it = channels.find(channelName);
 	if (it == channels.end()) {
 		channel = new Channel(channelName);
 		channels[channelName] = channel;
+		created = 1;
 	}
 	else
 		channel = it->second;
@@ -500,6 +503,8 @@ void Server::joinChannel(Client& client, const string& channelName, const string
 	queueMessage(findPollfd(client.getFd()), ss.str());
 	
 	channel->addMember(&client);
+	if (created)
+		channel->addOperator(&client);
 }
 
 /**

@@ -149,14 +149,11 @@ void Server::proccessIn(int fd) {
 	if (fd == socketFd) {
 		int acceptRes = accept(socketFd, NULL, NULL);
 		if (acceptRes < 0) {
-			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
-				return;
 			std::cerr << "accept() failed: " << std::strerror(errno) << std::endl;
 			return;
 		}
 
-		int flags = fcntl(acceptRes, F_GETFL, 0);
-		if (flags == -1 || fcntl(acceptRes, F_SETFL, flags | O_NONBLOCK) == -1) {
+		if (fcntl(acceptRes, F_SETFL, O_NONBLOCK) == -1) {
 			close(acceptRes);
 			return;
 		}
@@ -179,13 +176,7 @@ void Server::proccessIn(int fd) {
 		Client* client = it->second;
 
 		ssize_t bytes = recv(fd, buff, sizeof(buff), 0);
-		if (bytes == 0) {
-			removeClient(fd);
-			return;
-		}
-		if (bytes < 0) {
-			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
-				return;
+		if (bytes <= 0) {
 			removeClient(fd);
 			return;
 		}
@@ -223,15 +214,11 @@ void Server::proccessOut(pollfd& poll) {
 	}
 
 	ssize_t sent = send(poll.fd, output.c_str(), output.length(), 0);
-
-	if (sent > 0)
-		output.erase(0, sent);
-	else if (sent < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR))
-		return;
-	else {
+	if (sent <= 0) {
 		removeClient(poll.fd);
 		return;
 	}
+	output.erase(0, sent);
 
 	if (output.empty())
 		poll.events &= ~POLLOUT;
@@ -252,9 +239,11 @@ void Server::proccessOut(pollfd& poll) {
 void Server::removeClient(int fd) {
 	client_iterator it = clients.find(fd);
 	if (it != clients.end()) {
-		if (nicknames.find(it->second->getNickname()) != nicknames.end())
-			nicknames.erase(it->second->getNickname());
-		delete it->second;
+		Client* client = it->second;
+		leaveAllChannels(*client);
+		if (nicknames.find(client->getNickname()) != nicknames.end())
+			nicknames.erase(client->getNickname());
+		delete client;
 		clients.erase(fd);
 	}
 
@@ -314,6 +303,11 @@ pollfd& Server::findPollfd(int fd) {
 void Server::start() {
 	if ((socketFd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 		manageErrorsFromSocket(errno, __FILE__, __LINE__ - 1);
+
+	if (fcntl(socketFd, F_SETFL, O_NONBLOCK) == -1) {
+		close(socketFd);
+		return;
+	}
 
 	sockaddr_in addr;
 	addr.sin_family = AF_INET;
@@ -457,9 +451,14 @@ bool Server::isNicknameInUse(const string& nickname) const { return nicknames.fi
  * @param[in,out] client Client to remove from all channels.
  */
 void Server::leaveAllChannels(Client& client) {
-	for (channel_iterator it = channels.begin(); it != channels.end(); it++)
-		if (it->second->isMember(&client))
-			partChannel(client, it->first, "Client disconnected");
+	for (channel_iterator it = channels.begin(); it != channels.end(); ) {
+		Channel* channel = it->second;
+		string channelName = it->first;
+		++it;
+
+		if (channel->isMember(&client))
+			partChannel(client, channelName, "Client disconnected");
+	}
 }
 
 /**
@@ -503,6 +502,7 @@ void Server::joinChannel(Client& client, const string& channelName, const string
 	queueMessage(findPollfd(client.getFd()), ss.str());
 	
 	channel->addMember(&client);
+	client.incrementChannelCount();
 	if (created)
 		channel->addOperator(&client);
 }
@@ -526,6 +526,7 @@ void Server::partChannel(Client& client, const string& channelName, const string
 	notifyChannelChange(client, channelName, ss.str());
 	queueMessage(findPollfd(client.getFd()), ss.str());
 	channel->removeMember(&client);
+	client.decrementChannelCount();
 	if (channel->getMembers().empty()) {
 		delete channel;
 		channels.erase(it->first);
@@ -650,8 +651,10 @@ void Server::kickClient(Client& client, const string& channelName, const string&
 	Client* targetClient = nit->second;
 	stringstream ss;
 	ss << ":" << client.getNickname() << "!" << client.getUsername() << "@host KICK " << channelName << " " << targetNickname << " :" << (reason.empty() ? "No reason provided" : reason);
+	queueMessage(findPollfd(client.getFd()), ss.str());
 	notifyChannelChange(client, channelName, ss.str());
 	channel->removeMember(targetClient);
+	targetClient->decrementChannelCount();
 }
 
 /**

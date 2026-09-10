@@ -167,6 +167,7 @@ void Channel::setHasKey(bool value)
 void Channel::setUserLimit(size_t value)
 {
 	userLimit = value;
+	changeMode('l', value);
 }
 
 /**

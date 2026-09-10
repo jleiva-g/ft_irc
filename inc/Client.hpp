@@ -40,4 +40,5 @@ class	Client {
 
 		bool	hasEnoughChannels() const;
 		void	incrementChannelCount();
+		void	decrementChannelCount();
 };

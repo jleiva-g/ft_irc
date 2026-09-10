@@ -330,8 +330,7 @@ static void	handlePrivmsg(Client& client, Server& server, const vector<string>& 
 			continue;
 		hasTarget = true;
 		
-		if (target[0] == '#' || target[0] == '&'
-			|| target[0] == '+' || target[0] == '!') {
+		if (target[0] == '#' || target[0] == '&' || target[0] == '+' || target[0] == '!') {
 			if (!server.channelExists(target)) {
 				server.sendCodeToClient(client, ERR_NOSUCHCHANNEL, target + " " + getNumericInfo(ERR_NOSUCHCHANNEL).message);
 				continue;
@@ -462,7 +461,7 @@ static void	handleInvite(Client& client, Server& server, const vector<string>& a
 		server.sendCodeToClient(client, ERR_NOTONCHANNEL, args[1] + " " + getNumericInfo(ERR_NOTONCHANNEL).message);
 		return;
 	}
-	if (!server.isChannelOperator(args[1], client.getNickname())) {
+	if (server.isChannelInviteOnly(args[1]) && !server.isChannelOperator(args[1], client.getNickname())) {
 		server.sendCodeToClient(client, ERR_CHANOPRIVSNEEDED, args[1] + " " + getNumericInfo(ERR_CHANOPRIVSNEEDED).message);
 		return;
 	}

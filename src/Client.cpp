@@ -43,4 +43,6 @@ void Client::queueOneCommandToBuffer(const string& comm) {
 
 void Client::incrementChannelCount() { ++channelCount; }
 
+void Client::decrementChannelCount() { --channelCount; }
+
 bool Client::hasEnoughChannels() const { return channelCount >= CHANNEL_LIMIT; }

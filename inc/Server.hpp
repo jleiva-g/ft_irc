@@ -78,6 +78,7 @@ class	Server {
 		void	partChannel(Client& client, const string& channelName, const string& reason = "");
 
 
+		void	sendPong(Client& client, const string& token);
 		void	sendCodeToClient(Client& client, int code, const string& msg);
 		void	notifyChannelChange(Client& client, const string& channelName, const string& msg);
 		void	broadcastToChannel(const string& channelName, const string& msg, Client* excludeClient = NULL);

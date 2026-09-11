@@ -240,11 +240,18 @@ bool Channel::isInvited(Client* client) const
 
 /**
  * @brief Checks whether a client has channel operator status.
+ * @details If the channel has no operators, the first member is promoted to
+ * operator before the membership check is performed.
+ *
  * @param[in] client Client to look up.
- * @return True when the client is a channel operator.
+ * @return True when the client is a channel operator, false otherwise.
  */
-bool Channel::isOperator(Client* client) const
+bool Channel::isOperator(Client* client)
 {
+	if (operators.empty())
+	{
+		operators.insert(*(members.begin()));
+	}
 	if (operators.find(client) != operators.end())
 		return true;
 	else

@@ -549,6 +549,20 @@ void Server::sendCodeToClient(Client& client, int code, const string& msg) {
 }
 
 /**
+ * @brief Sends a PONG response to a client.
+ * @details Builds a server-prefixed IRC PONG message containing the token
+ * received in a PING command and queues it for asynchronous delivery.
+ *
+ * @param[in,out] client Client that receives the PONG response.
+ * @param[in] token Challenge token to include in the response.
+ */
+void Server::sendPong(Client& client, const string& token) {
+	stringstream ss;
+	ss << ":ft_irc.server PONG " << token;
+	queueMessage(findPollfd(client.getFd()), ss.str());
+}
+
+/**
  * @brief Notifies all members of a channel about a change.
  * @details Sends a message to all clients in the specified channel, excluding
  *  the client who initiated the change.

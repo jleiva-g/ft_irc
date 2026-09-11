@@ -653,6 +653,22 @@ static void	handleMode(Client& client, Server& server, const vector<string>& arg
 }
 
 /**
+ * @brief Handles the IRC PING command by sending a PONG response.
+ * @details Validates the challenge token received from the client and forwards
+ * it to the server so it can be returned in a PONG message.
+ *
+ * @param[in,out] client Client that sent the PING command.
+ * @param[in,out] server Server managing the client connection.
+ * @param[in] args Command arguments containing exactly one challenge token.
+ */
+static void	handlePong(Client& client, Server& server, const vector<string>& args) 
+{
+	if (args.size() != 1 || args[0].empty())
+		return;
+	server.sendPong(client, args[0]);
+}
+
+/**
  * @brief Handles a complete IRC command received from a client.
  * @details Parses the raw IRC message, identifies the command, the arguments,
  * and dispatches them to the corresponding command handler.
@@ -684,6 +700,8 @@ void	Command::handleCommand(Client& client, Server& server, const string& raw) {
 		handleTopic(client, server, args);
 	else if (name == "MODE")
 		handleMode(client, server, args);
+	else if (name == "PING")
+		handlePong(client, server, args);
 	else
 		server.sendCodeToClient(client, ERR_UNKNOWNCOMMAND, name + " " + getNumericInfo(ERR_UNKNOWNCOMMAND).message);
 }

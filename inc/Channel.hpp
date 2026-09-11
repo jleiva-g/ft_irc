@@ -45,7 +45,7 @@
 			size_t				getUserLimit() const;
 
 			bool				isMember(Client* client) const;
-			bool				isOperator(Client* client) const;
+			bool				isOperator(Client* client);
 			bool				isInvited(Client * Client) const;
 
 			bool				hasModeInviteOnly() const;

@@ -90,7 +90,7 @@ Server::~Server() {
  */
 void Server::mainLoop() {
 	while (true) {
-		int pollRes = poll(pollFds.data(), pollFds.size(), -1);
+		poll(pollFds.data(), pollFds.size(), -1);
 
 		for (size_t i = 0; i < pollFds.size(); i++)
 			proccessPollfd(i);

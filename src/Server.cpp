@@ -91,9 +91,6 @@ Server::~Server() {
 void Server::mainLoop() {
 	while (true) {
 		int pollRes = poll(pollFds.data(), pollFds.size(), -1);
-		if (pollRes < 0) {
-			// Poll errors must be handled before processing the event list.
-		}
 
 		for (size_t i = 0; i < pollFds.size(); i++)
 			proccessPollfd(i);

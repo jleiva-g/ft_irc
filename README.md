@@ -110,6 +110,6 @@ AI assistance was used for repository analysis and documentation. Specifically, 
 
 ## Authors
 
-- [acesteve](https://github.com/acesteve)
-- [emilgarc](https://github.com/emilgarc)
+- [acesteve](https://github.com/Alelith)
+- [emilgarc](https://github.com/emiliogburgos)
 - [jleiva-g](https://github.com/jleiva-g)

@@ -502,6 +502,18 @@ void Server::joinChannel(Client& client, const string& channelName, const string
 	client.incrementChannelCount();
 	if (created)
 		channel->addOperator(&client);
+
+	sendCodeToClient(client, RPL_TOPIC, channel->getTopic());
+	ss.str("");
+	set<Client *> members = channel->getMembers();
+	bool first = true;
+	for (set<Client *>::iterator it = members.begin(); it != members.end(); ++it) {
+		if (!first)
+			ss << " ";
+		ss << (*it)->getNickname();
+		first = false;
+	}
+	sendCodeToClient(client, RPL_NAMREPLY, ss.str());
 }
 
 /**

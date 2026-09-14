@@ -503,7 +503,10 @@ void Server::joinChannel(Client& client, const string& channelName, const string
 	if (created)
 		channel->addOperator(&client);
 
-	sendCodeToClient(client, RPL_TOPIC, channel->getTopic());
+	if (channel->getTopic().empty())
+		sendCodeToClient(client, RPL_NOTOPIC, channel->getName() + " :No topic is set");
+	else
+		sendCodeToClient(client, RPL_TOPIC, channel->getName() + " :" + channel->getTopic());
 	ss.str("");
 	set<Client *> members = channel->getMembers();
 	bool first = true;
@@ -513,7 +516,8 @@ void Server::joinChannel(Client& client, const string& channelName, const string
 		ss << (*it)->getNickname();
 		first = false;
 	}
-	sendCodeToClient(client, RPL_NAMREPLY, ss.str());
+	sendCodeToClient(client, RPL_NAMREPLY, "= " + channel->getName() + " :" + ss.str());
+	sendCodeToClient(client, RPL_ENDOFNAMES, channel->getName() + " :End of /NAMES list.");
 }
 
 /**
